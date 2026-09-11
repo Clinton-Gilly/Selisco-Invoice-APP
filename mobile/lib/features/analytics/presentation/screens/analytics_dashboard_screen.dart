@@ -19,17 +19,55 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Executive Analytics'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, color: AppColors.primary),
-            tooltip: 'Copilot Assistant',
-            onPressed: () {
-              ref.read(screenContextProvider.notifier).updateScreen(
-                route: '/analytics',
-                screenName: 'Analytics',
-                customNote: 'Executive analytics dashboard showing total revenue, collections, and delivery rates.',
-              );
-              CopilotSheet.show(context);
-            },
+          // Prominent Eye-Catching AI Assistant Button
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  ref.read(screenContextProvider.notifier).updateScreen(
+                    route: '/analytics',
+                    screenName: 'Analytics',
+                    customNote: 'Executive analytics dashboard showing total revenue, collections, and delivery rates.',
+                  );
+                  CopilotSheet.show(context);
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, color: Colors.white, size: 15),
+                      SizedBox(width: 5),
+                      Text(
+                        'AI Assistant',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),

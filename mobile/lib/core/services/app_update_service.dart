@@ -22,7 +22,7 @@ class AppUpdateInfo {
 }
 
 class AppUpdateService {
-  static const String currentVersion = '1.0.0';
+  static const String currentVersion = '1.0.1';
   static const String _kLastCheckKey = 'last_update_check_timestamp';
 
   /// Compare two semantic version strings (e.g. "1.0.1" vs "1.0.0")

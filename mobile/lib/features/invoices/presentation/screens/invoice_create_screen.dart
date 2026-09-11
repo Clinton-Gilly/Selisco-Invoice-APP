@@ -416,8 +416,9 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: const Color(0xFF059669), // Emerald WhatsApp green
                         foregroundColor: Colors.white,
+                        elevation: 2,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),

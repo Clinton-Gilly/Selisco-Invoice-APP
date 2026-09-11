@@ -82,10 +82,10 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     data: {
-      version: '1.0.0',
-      tagName: 'v1.0.0',
-      releaseName: 'Selisco Mobile v1.0.0',
-      releaseNotes: 'Direct invoice sharing, latest AI copilot models, and biometric security.',
+      version: '1.0.1',
+      tagName: 'v1.0.1',
+      releaseName: 'Selisco Mobile v1.0.1',
+      releaseNotes: 'Prominent AI Assistant, direct 1-tap invoice sharing to WhatsApp & apps, and system updates.',
       downloadUrl:
         'https://github.com/Clinton-Gilly/Selisco-Invoice-APP/releases/latest/download/app-release.apk',
     },

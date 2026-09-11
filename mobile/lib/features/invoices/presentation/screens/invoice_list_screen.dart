@@ -5,6 +5,8 @@ import '../../../../core/services/app_update_service.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../controllers/invoice_providers.dart';
+import '../../data/invoice_repository.dart';
+import '../../services/invoice_pdf_service.dart';
 import 'invoice_create_screen.dart';
 import 'invoice_detail_screen.dart';
 import '../../../copilot/presentation/screens/copilot_sheet.dart';
@@ -24,18 +26,56 @@ class InvoiceListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Invoices'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, color: AppColors.primary),
-            tooltip: 'Copilot Assistant',
-            onPressed: () {
-              ref.read(screenContextProvider.notifier).updateScreen(
-                route: '/invoices',
-                screenName: 'Invoices',
-                activeTab: selectedFilter,
-                customNote: 'Invoices list screen with active filter $selectedFilter.',
-              );
-              CopilotSheet.show(context);
-            },
+          // Prominent Eye-Catching AI Assistant Button
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  ref.read(screenContextProvider.notifier).updateScreen(
+                    route: '/invoices',
+                    screenName: 'Invoices',
+                    activeTab: selectedFilter,
+                    customNote: 'Invoices list screen with active filter $selectedFilter.',
+                  );
+                  CopilotSheet.show(context);
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, color: Colors.white, size: 15),
+                      SizedBox(width: 5),
+                      Text(
+                        'AI Assistant',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -265,7 +305,45 @@ class InvoiceListScreen extends ConsumerWidget {
                                       ],
                                     ],
                                   ),
-                                  StatusBadge(status: invoice.status),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      StatusBadge(status: invoice.status),
+                                      const SizedBox(width: 8),
+                                      // 1-Tap Direct Share Button
+                                      InkWell(
+                                        onTap: () async {
+                                          try {
+                                            final repo = ref.read(invoiceRepositoryProvider);
+                                            final fullInvoice = await repo.getInvoiceById(invoice.id);
+                                            await InvoicePdfService.shareInvoicePdf(fullInvoice);
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Failed to share: $e'),
+                                                  backgroundColor: AppColors.error,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(alpha: 0.12),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.share_rounded,
+                                            size: 16,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 10),

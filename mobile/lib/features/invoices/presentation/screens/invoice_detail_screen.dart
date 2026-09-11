@@ -404,14 +404,19 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
               // Action Buttons
               // 1. Direct Share via Apps (WhatsApp, Email, etc.)
               SizedBox(
-                height: 50,
+                height: 52,
                 child: ElevatedButton.icon(
                   onPressed: () => InvoicePdfService.shareInvoicePdf(invoice),
-                  icon: const Icon(Icons.share_rounded),
-                  label: const Text('Share Invoice via Apps (WhatsApp, Email...)'),
+                  icon: const Icon(Icons.share_rounded, size: 20),
+                  label: const Text(
+                    'Share Invoice via Apps (WhatsApp, Email...)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: const Color(0xFF059669), // Emerald WhatsApp green
                     foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 1,
                   ),
                 ),
               ),
