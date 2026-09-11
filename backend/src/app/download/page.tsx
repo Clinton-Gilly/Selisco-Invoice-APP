@@ -20,16 +20,15 @@ export default function DownloadPage() {
 
         {/* Big Download Button */}
         <a
-          href="/selisco.apk"
-          download="Selisco.apk"
+          href="https://github.com/Clinton-Gilly/Selisco-Invoice-APP/releases/latest/download/app-release.apk"
           className="inline-flex items-center justify-center gap-3 w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-base rounded-2xl shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 mb-4"
         >
           <Download className="w-5 h-5" />
-          Download & Install APK (54.4 MB)
+          Download & Install APK (Latest)
         </a>
 
         <p className="text-xs text-slate-500 mb-6">
-          Direct local download from your workstation • Android 8.0+
+          Direct cloud download from GitHub CDN • Android 8.0+
         </p>
 
         {/* Simple 3-step Instructions */}

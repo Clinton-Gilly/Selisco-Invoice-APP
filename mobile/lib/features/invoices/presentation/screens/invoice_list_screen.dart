@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/app_update_service.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../controllers/invoice_providers.dart';
 import 'invoice_create_screen.dart';
 import 'invoice_detail_screen.dart';
 import '../../../copilot/presentation/screens/copilot_sheet.dart';
+import '../../../copilot/presentation/screens/copilot_settings_screen.dart';
 import '../../../copilot/services/screen_context_service.dart';
 
 class InvoiceListScreen extends ConsumerWidget {
@@ -39,6 +41,42 @@ class InvoiceListScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
             onPressed: () => ref.invalidate(invoicesListProvider),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'More options',
+            onSelected: (val) {
+              if (val == 'update') {
+                AppUpdateService.checkForUpdate(context, showNoUpdateSnackBar: true);
+              } else if (val == 'settings') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CopilotSettingsScreen()),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'update',
+                child: Row(
+                  children: [
+                    Icon(Icons.system_update_rounded, size: 20, color: AppColors.primary),
+                    SizedBox(width: 12),
+                    Text('Check for Updates'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings_outlined, size: 20),
+                    SizedBox(width: 12),
+                    Text('Copilot Settings'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

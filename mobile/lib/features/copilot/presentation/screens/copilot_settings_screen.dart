@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/app_update_service.dart';
 import '../../data/copilot_repository.dart';
 import '../../models/copilot_models.dart';
 
@@ -15,6 +16,7 @@ class _CopilotSettingsScreenState extends ConsumerState<CopilotSettingsScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isTesting = false;
+  bool _isCheckingUpdate = false;
   String? _testSuccessMessage;
   String? _testErrorMessage;
   bool _isVerified = false;
@@ -490,6 +492,77 @@ class _CopilotSettingsScreenState extends ConsumerState<CopilotSettingsScreen> {
                   value: _readOnly,
                   activeThumbColor: AppColors.primary,
                   onChanged: (val) => setState(() => _readOnly = val),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Section 4: App Updates & Release Version
+          _buildCard(
+            title: 'Application & Release Info',
+            subtitle: 'Check for new client releases and instant in-app feature updates.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Current Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        SizedBox(height: 2),
+                        Text('v${AppUpdateService.currentVersion}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace')),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.successBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.cloud_done_rounded, size: 14, color: AppColors.success),
+                          SizedBox(width: 4),
+                          Text('Auto-Sync Active', style: TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isCheckingUpdate
+                        ? null
+                        : () async {
+                            setState(() => _isCheckingUpdate = true);
+                            try {
+                              await AppUpdateService.checkForUpdate(context, showNoUpdateSnackBar: true);
+                            } finally {
+                              if (mounted) setState(() => _isCheckingUpdate = false);
+                            }
+                          },
+                    icon: _isCheckingUpdate
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.system_update_rounded, size: 18),
+                    label: Text(_isCheckingUpdate ? 'Checking for updates...' : 'Check for Updates Now'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
                 ),
               ],
             ),

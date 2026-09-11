@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_colors.dart';
+import '../core/services/app_update_service.dart';
 import '../features/invoices/presentation/screens/invoice_list_screen.dart';
 import '../features/delivery_notes/presentation/screens/delivery_note_list_screen.dart';
 import '../features/analytics/presentation/screens/analytics_dashboard_screen.dart';
@@ -16,6 +17,15 @@ class MainNavigationShell extends ConsumerStatefulWidget {
 
 class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check for updates automatically in the background on startup (throttled)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkOnStartup(context);
+    });
+  }
 
   final List<Widget> _screens = const [
     InvoiceListScreen(),

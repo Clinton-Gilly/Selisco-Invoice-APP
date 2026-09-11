@@ -10,6 +10,7 @@ backend/.vercel/
 backend/node_modules/
 backend/build/
 backend/dist/
+*.tsbuildinfo
 
 # Mobile / Flutter
 mobile/.dart_tool/

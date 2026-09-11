@@ -23,6 +23,9 @@ class ApiConstants {
   static const String copilotConfig = '/api/copilot/config';
   static const String copilotTest = '/api/copilot/test';
   static const String copilotUndo = '/api/copilot/undo';
+  static const String appVersion = '/api/version';
+  static const String githubReleasesLatest =
+      'https://api.github.com/repos/Clinton-Gilly/Selisco-Invoice-APP/releases/latest';
 
   static String invoiceDetail(String id) => '/api/invoices/$id';
   static String convertInvoice(String id) => '/api/invoices/$id/convert';
