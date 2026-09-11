@@ -40,19 +40,14 @@ export async function GET() {
 
     if (ghRes.ok) {
       const release = await ghRes.json();
-      const tagName = release.tag_name || 'v1.0.0';
+      const tagName = release.tag_name || 'v1.0.1';
       const version = tagName.replace(/^v/, '');
-      const asset = release.assets?.find((a: any) => a.name && a.name.endsWith('.apk'));
-      const downloadUrl =
-        asset?.browser_download_url ||
-        'https://github.com/Clinton-Gilly/Selisco-Invoice-APP/releases/latest/download/app-release.apk';
-
       const releaseData = {
         version,
         tagName,
         releaseName: release.name || `Version ${version}`,
         releaseNotes: release.body || 'New features, improvements and bug fixes.',
-        downloadUrl,
+        downloadUrl: 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk',
         publishedAt: release.published_at,
       };
 
@@ -86,8 +81,7 @@ export async function GET() {
       tagName: 'v1.0.1',
       releaseName: 'Selisco Mobile v1.0.1',
       releaseNotes: 'Prominent AI Assistant, direct 1-tap invoice sharing to WhatsApp & apps, and system updates.',
-      downloadUrl:
-        'https://github.com/Clinton-Gilly/Selisco-Invoice-APP/releases/latest/download/app-release.apk',
+      downloadUrl: 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk',
     },
   });
 }
