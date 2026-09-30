@@ -174,6 +174,31 @@ class _DeliveryNoteDetailScreenState extends ConsumerState<DeliveryNoteDetailScr
                         style: const TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w500),
                       ),
                     ],
+                    if (note.totalAmount > 0) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.payments_outlined, size: 16, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Total Note Amount: ${Formatters.currency(note.totalAmount, currencyCode: note.currency)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -230,6 +255,22 @@ class _DeliveryNoteDetailScreenState extends ConsumerState<DeliveryNoteDetailScr
                               item.productName,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                             ),
+                            if (item.unitPrice > 0 || item.totalPrice > 0) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    '@ ${Formatters.currency(item.unitPrice, currencyCode: note.currency)}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Amount: ${Formatters.currency(item.totalPrice > 0 ? item.totalPrice : (item.unitPrice * item.orderedQuantity), currencyCode: note.currency)}',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -305,6 +346,75 @@ class _DeliveryNoteDetailScreenState extends ConsumerState<DeliveryNoteDetailScr
                   ],
                 ),
               ),
+              if (note.totalAmount > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Financial Value Summary',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Subtotal', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                          Text(
+                            Formatters.currency(
+                              note.subtotal > 0 ? note.subtotal : note.totalAmount,
+                              currencyCode: note.currency,
+                            ),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      if (note.tax > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tax / VAT', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                            Text(
+                              Formatters.currency(note.tax, currencyCode: note.currency),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total Note Amount',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          ),
+                          Text(
+                            Formatters.currency(note.totalAmount, currencyCode: note.currency),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 16),
 

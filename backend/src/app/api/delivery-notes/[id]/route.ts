@@ -63,7 +63,7 @@ export async function PATCH(
   try {
     const { id } = params;
     const body = await request.json();
-    const { status, recipient_name, recipient_signature_url, notes, delivered_at, items } = body;
+    const { status, recipient_name, recipient_signature_url, notes, delivered_at, subtotal, tax, total_amount, items } = body;
 
     await client.query('BEGIN');
 
@@ -99,6 +99,21 @@ export async function PATCH(
       values.push(notes);
     }
 
+    if (subtotal !== undefined) {
+      fields.push(`subtotal = $${idx++}`);
+      values.push(subtotal);
+    }
+
+    if (tax !== undefined) {
+      fields.push(`tax = $${idx++}`);
+      values.push(tax);
+    }
+
+    if (total_amount !== undefined) {
+      fields.push(`total_amount = $${idx++}`);
+      values.push(total_amount);
+    }
+
     let updatedNote = null;
     if (fields.length > 0) {
       values.push(id);
@@ -118,16 +133,40 @@ export async function PATCH(
       updatedNote = getRes.rows[0];
     }
 
-    // Update item delivered quantities if provided
+    // Update item delivered quantities and prices if provided
     if (items && Array.isArray(items)) {
       for (const item of items) {
-        if (item.id && item.delivered_quantity !== undefined) {
-          await client.query(
-            `UPDATE delivery_note_items 
-             SET delivered_quantity = $1 
-             WHERE id = $2 AND delivery_note_id = $3`,
-            [item.delivered_quantity, item.id, id]
-          );
+        if (item.id) {
+          const itemUpdates: string[] = [];
+          const itemVals: any[] = [];
+          let itIdx = 1;
+
+          if (item.delivered_quantity !== undefined) {
+            itemUpdates.push(`delivered_quantity = $${itIdx++}`);
+            itemVals.push(item.delivered_quantity);
+          }
+          if (item.ordered_quantity !== undefined) {
+            itemUpdates.push(`ordered_quantity = $${itIdx++}`);
+            itemVals.push(item.ordered_quantity);
+          }
+          if (item.unit_price !== undefined) {
+            itemUpdates.push(`unit_price = $${itIdx++}`);
+            itemVals.push(item.unit_price);
+          }
+          if (item.total_price !== undefined) {
+            itemUpdates.push(`total_price = $${itIdx++}`);
+            itemVals.push(item.total_price);
+          }
+
+          if (itemUpdates.length > 0) {
+            itemVals.push(item.id, id);
+            await client.query(
+              `UPDATE delivery_note_items 
+               SET ${itemUpdates.join(', ')} 
+               WHERE id = $${itIdx++} AND delivery_note_id = $${itIdx}`,
+              itemVals
+            );
+          }
         }
       }
     }

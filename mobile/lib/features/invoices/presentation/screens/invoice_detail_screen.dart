@@ -26,16 +26,116 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   bool _isConverting = false;
 
   Future<void> _convertToDeliveryNote(InvoiceModel invoice) async {
+    final recipientCtrl = TextEditingController(text: invoice.customerName);
+    final notesCtrl = TextEditingController(text: 'Delivery against ${invoice.invoiceNumber}. Selisco Ltd.');
+
+    final shouldCreate = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.local_shipping_outlined, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Create Delivery Note', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'DELIVERY NOTE AMOUNT',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      Formatters.currency(invoice.totalAmount, currencyCode: invoice.currency),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${invoice.items.length} line items • Ref: ${invoice.invoiceNumber}',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: recipientCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Recipient / Hospital Name',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Dispatch Notes',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Create Delivery Note'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCreate != true) return;
+
     setState(() => _isConverting = true);
     try {
       final repository = ref.read(invoiceRepositoryProvider);
-      final result = await repository.convertToDeliveryNote(invoice.id);
+      final result = await repository.convertToDeliveryNote(
+        invoice.id,
+        recipientName: recipientCtrl.text.trim(),
+        notes: notesCtrl.text.trim(),
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppColors.success,
-            content: Text('Delivery Note created successfully!'),
+            content: Text(
+              'Delivery Note created for ${Formatters.currency(invoice.totalAmount, currencyCode: invoice.currency)}!',
+            ),
           ),
         );
 

@@ -5,6 +5,8 @@ class DeliveryNoteItemModel {
   final String productName;
   final double orderedQuantity;
   final double deliveredQuantity;
+  final double unitPrice;
+  final double totalPrice;
 
   const DeliveryNoteItemModel({
     this.id,
@@ -13,18 +15,29 @@ class DeliveryNoteItemModel {
     required this.productName,
     required this.orderedQuantity,
     required this.deliveredQuantity,
+    this.unitPrice = 0.0,
+    this.totalPrice = 0.0,
   });
 
   factory DeliveryNoteItemModel.fromJson(Map<String, dynamic> json) {
+    final orderedQty =
+        double.tryParse(json['ordered_quantity']?.toString() ?? '0') ?? 0.0;
+    final deliveredQty =
+        double.tryParse(json['delivered_quantity']?.toString() ?? '0') ?? 0.0;
+    final uPrice =
+        double.tryParse(json['unit_price']?.toString() ?? '0') ?? 0.0;
+    final tPrice =
+        double.tryParse(json['total_price']?.toString() ?? '0') ?? (uPrice * orderedQty);
+
     return DeliveryNoteItemModel(
       id: json['id']?.toString(),
       deliveryNoteId: json['delivery_note_id']?.toString(),
       invoiceItemId: json['invoice_item_id']?.toString(),
       productName: json['product_name'] ?? '',
-      orderedQuantity:
-          double.tryParse(json['ordered_quantity']?.toString() ?? '0') ?? 0.0,
-      deliveredQuantity:
-          double.tryParse(json['delivered_quantity']?.toString() ?? '0') ?? 0.0,
+      orderedQuantity: orderedQty,
+      deliveredQuantity: deliveredQty,
+      unitPrice: uPrice,
+      totalPrice: tPrice,
     );
   }
 
@@ -36,6 +49,8 @@ class DeliveryNoteItemModel {
       'product_name': productName,
       'ordered_quantity': orderedQuantity,
       'delivered_quantity': deliveredQuantity,
+      'unit_price': unitPrice,
+      'total_price': totalPrice,
     };
   }
 
@@ -46,6 +61,8 @@ class DeliveryNoteItemModel {
     String? productName,
     double? orderedQuantity,
     double? deliveredQuantity,
+    double? unitPrice,
+    double? totalPrice,
   }) {
     return DeliveryNoteItemModel(
       id: id ?? this.id,
@@ -54,6 +71,8 @@ class DeliveryNoteItemModel {
       productName: productName ?? this.productName,
       orderedQuantity: orderedQuantity ?? this.orderedQuantity,
       deliveredQuantity: deliveredQuantity ?? this.deliveredQuantity,
+      unitPrice: unitPrice ?? this.unitPrice,
+      totalPrice: totalPrice ?? this.totalPrice,
     );
   }
 }
@@ -67,6 +86,10 @@ class DeliveryNoteModel {
   final String? recipientName;
   final String? recipientSignatureUrl;
   final String? notes;
+  final double subtotal;
+  final double tax;
+  final double totalAmount;
+  final String currency;
   final String? dispatchedAt;
   final String? deliveredAt;
   final String? createdAt;
@@ -87,6 +110,10 @@ class DeliveryNoteModel {
     this.recipientName,
     this.recipientSignatureUrl,
     this.notes,
+    this.subtotal = 0.0,
+    this.tax = 0.0,
+    this.totalAmount = 0.0,
+    this.currency = 'KES',
     this.dispatchedAt,
     this.deliveredAt,
     this.createdAt,
@@ -108,6 +135,13 @@ class DeliveryNoteModel {
           .toList();
     }
 
+    final parsedSubtotal =
+        double.tryParse(json['subtotal']?.toString() ?? '0') ?? 0.0;
+    final parsedTax =
+        double.tryParse(json['tax']?.toString() ?? '0') ?? 0.0;
+    final parsedTotal =
+        double.tryParse(json['total_amount']?.toString() ?? '0') ?? (parsedSubtotal + parsedTax);
+
     return DeliveryNoteModel(
       id: json['id']?.toString() ?? '',
       invoiceId: json['invoice_id']?.toString() ?? '',
@@ -117,6 +151,10 @@ class DeliveryNoteModel {
       recipientName: json['recipient_name']?.toString(),
       recipientSignatureUrl: json['recipient_signature_url']?.toString(),
       notes: json['notes']?.toString(),
+      subtotal: parsedSubtotal,
+      tax: parsedTax,
+      totalAmount: parsedTotal,
+      currency: json['currency']?.toString() ?? 'KES',
       dispatchedAt: json['dispatched_at']?.toString(),
       deliveredAt: json['delivered_at']?.toString(),
       createdAt: json['created_at']?.toString(),
@@ -140,6 +178,10 @@ class DeliveryNoteModel {
       'recipient_name': recipientName,
       'recipient_signature_url': recipientSignatureUrl,
       'notes': notes,
+      'subtotal': subtotal,
+      'tax': tax,
+      'total_amount': totalAmount,
+      'currency': currency,
       'items': items.map((i) => i.toJson()).toList(),
     };
   }

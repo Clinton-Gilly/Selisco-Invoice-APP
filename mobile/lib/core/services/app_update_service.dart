@@ -22,10 +22,10 @@ class AppUpdateInfo {
 }
 
 class AppUpdateService {
-  static const String currentVersion = '1.0.1';
+  static const String currentVersion = '1.1.0';
   static const String _kLastCheckKey = 'last_update_check_timestamp';
 
-  /// Compare two semantic version strings (e.g. "1.0.1" vs "1.0.0")
+  /// Compare two semantic version strings (e.g. "1.1.0" vs "1.0.1")
   static bool isVersionNewer(String latest, String current) {
     try {
       final cleanLatest = latest.trim().replaceAll(RegExp(r'^v'), '');
@@ -67,7 +67,7 @@ class AppUpdateService {
           releaseName: d['releaseName']?.toString() ?? 'Selisco Update',
           releaseNotes: d['releaseNotes']?.toString() ?? '',
           downloadUrl: d['downloadUrl']?.toString() ??
-              'https://github.com/Clinton-Gilly/Selisco-Invoice-APP/releases/latest/download/app-release.apk',
+              'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk',
         );
       }
     } catch (e) {
@@ -92,7 +92,7 @@ class AppUpdateService {
 
         final downloadUrl = apkAsset != null
             ? apkAsset['browser_download_url']?.toString() ?? ''
-            : 'https://github.com/Clinton-Gilly/Selisco-Invoice-APP/releases/latest/download/app-release.apk';
+            : 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk';
 
         return AppUpdateInfo(
           latestVersion: ver,
@@ -109,17 +109,25 @@ class AppUpdateService {
     return null;
   }
 
-  /// Automatically check for updates on startup (throttled to once every 4 hours)
+  /// Automatically check for updates on startup
   static Future<void> checkOnStartup(BuildContext context) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastCheck = prefs.getInt(_kLastCheckKey) ?? 0;
       final now = DateTime.now().millisecondsSinceEpoch;
 
-      // Only check once every 4 hours
-      if (now - lastCheck < 4 * 60 * 60 * 1000) return;
+      // Only check once every 2 hours on background startup
+      if (now - lastCheck < 2 * 60 * 60 * 1000) return;
       await prefs.setInt(_kLastCheckKey, now);
 
+      if (!context.mounted) return;
+      await checkForUpdate(context, isAutomated: true);
+    } catch (_) {}
+  }
+
+  /// Automatically check for updates immediately on sign in / unlock
+  static Future<void> checkOnSignIn(BuildContext context) async {
+    try {
       if (!context.mounted) return;
       await checkForUpdate(context, isAutomated: true);
     } catch (_) {}

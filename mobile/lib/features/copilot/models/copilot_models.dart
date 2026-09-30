@@ -267,3 +267,75 @@ class ScreenContext {
         if (customNote != null) 'customNote': customNote,
       };
 }
+
+@immutable
+class CopilotSession {
+  final String id;
+  final String title;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<CopilotMessage> messages;
+  final List<Map<String, dynamic>> backendHistory;
+
+  const CopilotSession({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.updatedAt,
+    this.messages = const [],
+    this.backendHistory = const [],
+  });
+
+  CopilotSession copyWith({
+    String? title,
+    DateTime? updatedAt,
+    List<CopilotMessage>? messages,
+    List<Map<String, dynamic>>? backendHistory,
+  }) {
+    return CopilotSession(
+      id: id,
+      title: title ?? this.title,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      messages: messages ?? this.messages,
+      backendHistory: backendHistory ?? this.backendHistory,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'messages': messages
+        .where((m) => m.role == CopilotRole.user || m.role == CopilotRole.assistant)
+        .map((m) => m.toJson())
+        .toList(),
+    'backendHistory': backendHistory,
+  };
+
+  factory CopilotSession.fromJson(Map<String, dynamic> json) {
+    final rawMsgs = json['messages'] as List<dynamic>? ?? [];
+    final rawBackend = json['backendHistory'] as List<dynamic>? ?? [];
+
+    return CopilotSession(
+      id: json['id'] as String? ?? 'session_${DateTime.now().millisecondsSinceEpoch}',
+      title: json['title'] as String? ?? 'New Chat',
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      messages: rawMsgs
+          .whereType<Map>()
+          .map((m) => CopilotMessage.fromJson(Map<String, dynamic>.from(m)))
+          .where((m) => !m.isError)
+          .toList(),
+      backendHistory: rawBackend
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList(),
+    );
+  }
+}

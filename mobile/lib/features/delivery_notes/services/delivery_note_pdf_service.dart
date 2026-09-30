@@ -263,16 +263,20 @@ class DeliveryNotePdfService {
                           child: pw.Row(
                             children: [
                               _buildCell('PARTICULARS / ITEM DESCRIPTION', isFlex: true, isHeader: true),
-                              _buildCell('ORDERED', width: 75, align: pw.TextAlign.center, isHeader: true),
-                              _buildCell('DELIVERED', width: 75, align: pw.TextAlign.center, isHeader: true),
-                              _buildCell('STATUS', width: 85, align: pw.TextAlign.center, isHeader: true, isLast: true),
+                              _buildCell('ORDERED', width: 55, align: pw.TextAlign.center, isHeader: true),
+                              _buildCell('DELIVERED', width: 55, align: pw.TextAlign.center, isHeader: true),
+                              _buildCell('@ PRICE', width: 70, align: pw.TextAlign.right, isHeader: true),
+                              _buildCell('AMOUNT (Shs.)', width: 85, align: pw.TextAlign.right, isHeader: true, isLast: true),
                             ],
                           ),
                         ),
 
                         // Item Rows
                         ...note.items.map((item) {
-                          final isComplete = item.deliveredQuantity >= item.orderedQuantity;
+                          final lineTotal = item.totalPrice > 0
+                              ? item.totalPrice
+                              : (item.unitPrice * item.orderedQuantity);
+
                           return pw.Container(
                             decoration: const pw.BoxDecoration(
                               border: pw.Border(
@@ -282,19 +286,49 @@ class DeliveryNotePdfService {
                             child: pw.Row(
                               children: [
                                 _buildCell(item.productName, isFlex: true),
-                                _buildCell(item.orderedQuantity.toStringAsFixed(0), width: 75, align: pw.TextAlign.center),
-                                _buildCell(item.deliveredQuantity.toStringAsFixed(0), width: 75, align: pw.TextAlign.center),
+                                _buildCell(item.orderedQuantity.toStringAsFixed(0), width: 55, align: pw.TextAlign.center),
+                                _buildCell(item.deliveredQuantity.toStringAsFixed(0), width: 55, align: pw.TextAlign.center),
                                 _buildCell(
-                                  isComplete ? 'FULFILLED' : 'PARTIAL',
+                                  Formatters.currency(item.unitPrice, currencyCode: note.currency),
+                                  width: 70,
+                                  align: pw.TextAlign.right,
+                                ),
+                                _buildCell(
+                                  Formatters.currency(lineTotal, currencyCode: note.currency),
                                   width: 85,
-                                  align: pw.TextAlign.center,
+                                  align: pw.TextAlign.right,
                                   isLast: true,
-                                  textColor: isComplete ? PdfColors.green800 : PdfColors.amber800,
                                 ),
                               ],
                             ),
                           );
                         }),
+
+                        // Total Row
+                        if (note.totalAmount > 0)
+                          pw.Container(
+                            decoration: const pw.BoxDecoration(
+                              color: _lightTeal,
+                              border: pw.Border(
+                                top: pw.BorderSide(color: _borderTeal, width: 1.2),
+                              ),
+                            ),
+                            child: pw.Row(
+                              children: [
+                                _buildCell('TOTAL DELIVERY NOTE AMOUNT', isFlex: true, isHeader: true),
+                                _buildCell('', width: 55),
+                                _buildCell('', width: 55),
+                                _buildCell('', width: 70),
+                                _buildCell(
+                                  Formatters.currency(note.totalAmount, currencyCode: note.currency),
+                                  width: 85,
+                                  align: pw.TextAlign.right,
+                                  isHeader: true,
+                                  isLast: true,
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),

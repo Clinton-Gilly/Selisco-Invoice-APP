@@ -72,6 +72,9 @@ CREATE TABLE IF NOT EXISTS delivery_notes (
     recipient_name VARCHAR(255),
     recipient_signature_url TEXT,
     notes TEXT,
+    subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    tax NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     dispatched_at TIMESTAMPTZ,
     delivered_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -79,7 +82,7 @@ CREATE TABLE IF NOT EXISTS delivery_notes (
     CONSTRAINT uq_business_delivery_number UNIQUE(business_id, note_number)
 );
 
--- 5. Delivery Note Items (Tracking Ordered vs Delivered Quantities)
+-- 5. Delivery Note Items (Tracking Ordered vs Delivered Quantities and Amounts)
 CREATE TABLE IF NOT EXISTS delivery_note_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     delivery_note_id UUID NOT NULL REFERENCES delivery_notes(id) ON DELETE CASCADE,
@@ -87,6 +90,8 @@ CREATE TABLE IF NOT EXISTS delivery_note_items (
     product_name VARCHAR(255) NOT NULL,
     ordered_quantity NUMERIC(10, 2) NOT NULL,
     delivered_quantity NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

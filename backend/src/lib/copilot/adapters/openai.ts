@@ -25,8 +25,24 @@ export async function chatOpenAI(
         content: msg.text || '',
       });
     } else if (msg.role === 'assistant') {
-      if (msg.raw) {
-        messages.push(msg.raw);
+      if (msg.raw && typeof msg.raw === 'object') {
+        const sanitized: any = {
+          role: 'assistant',
+          content: msg.raw.content ?? msg.text ?? null,
+        };
+        if (msg.raw.tool_calls && Array.isArray(msg.raw.tool_calls)) {
+          sanitized.tool_calls = msg.raw.tool_calls;
+        } else if (msg.toolCalls && msg.toolCalls.length > 0) {
+          sanitized.tool_calls = msg.toolCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments: typeof tc.arguments === 'string' ? tc.arguments : JSON.stringify(tc.arguments || {}),
+            },
+          }));
+        }
+        messages.push(sanitized);
       } else {
         const item: any = {
           role: 'assistant',
@@ -38,7 +54,7 @@ export async function chatOpenAI(
             type: 'function',
             function: {
               name: tc.name,
-              arguments: JSON.stringify(tc.arguments),
+              arguments: typeof tc.arguments === 'string' ? tc.arguments : JSON.stringify(tc.arguments || {}),
             },
           }));
         }

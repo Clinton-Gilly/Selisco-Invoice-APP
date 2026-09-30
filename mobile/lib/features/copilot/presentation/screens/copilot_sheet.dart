@@ -30,84 +30,388 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
   final List<CopilotMessage> _messages = [];
   // Authoritative backend conversation history (preserves tool_calls, raw, etc.)
   List<Map<String, dynamic>> _backendHistory = [];
+  List<CopilotSession> _sessions = [];
+  String _currentSessionId = '';
+
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   bool _isProcessingAction = false;
 
-  static const _kHistoryKey = 'copilot_chat_history';
-  static const _kBackendHistoryKey = 'copilot_backend_history';
+  static const _kSessionsKey = 'copilot_sessions_v2';
+  static const _kActiveSessionIdKey = 'copilot_active_session_id';
+  static const _kLegacyHistoryKey = 'copilot_chat_history';
+  static const _kLegacyBackendHistoryKey = 'copilot_backend_history';
 
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    _loadSessions();
   }
 
-  Future<void> _loadHistory() async {
+  Future<void> _loadSessions() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kHistoryKey);
-    final rawBackend = prefs.getString(_kBackendHistoryKey);
-    if (raw != null) {
+    final rawSessions = prefs.getString(_kSessionsKey);
+    final activeId = prefs.getString(_kActiveSessionIdKey);
+
+    if (rawSessions != null) {
       try {
-        final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-        final loaded = list
-            .map((e) => CopilotMessage.fromJson(e as Map<String, dynamic>))
-            .where((m) => !m.isError)
-            .toList();
-        if (loaded.isNotEmpty) {
-          if (mounted) setState(() => _messages.addAll(loaded));
-        } else {
-          if (mounted) _addInitialGreeting();
-        }
-      } catch (_) {
-        if (mounted) _addInitialGreeting();
-      }
-    } else {
-      if (mounted) _addInitialGreeting();
-    }
-    if (rawBackend != null) {
-      try {
-        final List<dynamic> list = jsonDecode(rawBackend) as List<dynamic>;
-        _backendHistory = list
+        final List<dynamic> list = jsonDecode(rawSessions) as List<dynamic>;
+        _sessions = list
             .whereType<Map>()
-            .map((m) => Map<String, dynamic>.from(m))
+            .map((e) => CopilotSession.fromJson(Map<String, dynamic>.from(e)))
             .toList();
       } catch (_) {}
     }
-    if (mounted) _scrollToBottom();
+
+    // Migrate from legacy single-session storage if needed
+    if (_sessions.isEmpty) {
+      final legacyRaw = prefs.getString(_kLegacyHistoryKey);
+      final legacyRawBackend = prefs.getString(_kLegacyBackendHistoryKey);
+
+      List<CopilotMessage> legacyMessages = [];
+      List<Map<String, dynamic>> legacyBackend = [];
+
+      if (legacyRaw != null) {
+        try {
+          final List<dynamic> list = jsonDecode(legacyRaw) as List<dynamic>;
+          legacyMessages = list
+              .map((e) => CopilotMessage.fromJson(e as Map<String, dynamic>))
+              .where((m) => !m.isError)
+              .toList();
+        } catch (_) {}
+      }
+
+      if (legacyRawBackend != null) {
+        try {
+          final List<dynamic> list = jsonDecode(legacyRawBackend) as List<dynamic>;
+          legacyBackend = list.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+        } catch (_) {}
+      }
+
+      if (legacyMessages.isNotEmpty) {
+        final firstUser = legacyMessages.where((m) => m.role == CopilotRole.user);
+        final title = firstUser.isNotEmpty ? firstUser.first.text : 'Previous Conversation';
+        final cleanTitle = title.length > 32 ? '${title.substring(0, 32)}...' : title;
+
+        final legacySession = CopilotSession(
+          id: 'session_legacy',
+          title: cleanTitle,
+          createdAt: legacyMessages.first.timestamp,
+          updatedAt: legacyMessages.last.timestamp,
+          messages: legacyMessages,
+          backendHistory: legacyBackend,
+        );
+        _sessions.add(legacySession);
+      }
+    }
+
+    // If still empty, create initial session
+    if (_sessions.isEmpty) {
+      _createNewSession(saveCurrentFirst: false);
+      return;
+    }
+
+    // Resolve active session
+    CopilotSession activeSession = _sessions.first;
+    if (activeId != null) {
+      activeSession = _sessions.firstWhere((s) => s.id == activeId, orElse: () => _sessions.first);
+    }
+
+    _currentSessionId = activeSession.id;
+    if (mounted) {
+      setState(() {
+        _messages.clear();
+        _messages.addAll(activeSession.messages);
+        _backendHistory = List<Map<String, dynamic>>.from(activeSession.backendHistory);
+      });
+      _scrollToBottom();
+    }
   }
 
-  Future<void> _saveHistory() async {
+  Future<void> _saveSessions() async {
     final prefs = await SharedPreferences.getInstance();
-    // Only save user and assistant display messages (not tool/system)
-    final toSave = _messages
-        .where((m) => m.role == CopilotRole.user || m.role == CopilotRole.assistant)
-        .map((m) => m.toJson())
-        .toList();
-    await prefs.setString(_kHistoryKey, jsonEncode(toSave));
-    await prefs.setString(_kBackendHistoryKey, jsonEncode(_backendHistory));
-  }
 
-  @override
-  void dispose() {
-    _inputController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
+    final currentIdx = _sessions.indexWhere((s) => s.id == _currentSessionId);
+    final validMsgs = _messages.where((m) => !m.isError).toList();
 
-  void _addInitialGreeting() {
-    final screenContext = ref.read(screenContextProvider);
-    setState(() {
-      _messages.add(
-        CopilotMessage(
-          id: 'msg_welcome',
-          role: CopilotRole.assistant,
-          text: 'Hello! I\'m your **Selisco Assistant** on **${screenContext.screenName}**. I can create invoices, add catalog items, convert delivery notes, and report revenue metrics. How can I help?',
-          timestamp: DateTime.now(),
-        ),
+    if (currentIdx != -1) {
+      _sessions[currentIdx] = _sessions[currentIdx].copyWith(
+        messages: validMsgs,
+        backendHistory: _backendHistory,
+        updatedAt: DateTime.now(),
       );
+    }
+
+    final toSave = _sessions.map((s) => s.toJson()).toList();
+    await prefs.setString(_kSessionsKey, jsonEncode(toSave));
+    await prefs.setString(_kActiveSessionIdKey, _currentSessionId);
+  }
+
+  void _createNewSession({bool saveCurrentFirst = true}) {
+    if (saveCurrentFirst && _currentSessionId.isNotEmpty) {
+      _saveSessions();
+    }
+
+    final screenContext = ref.read(screenContextProvider);
+    final welcomeMsg = CopilotMessage(
+      id: 'msg_welcome_${DateTime.now().millisecondsSinceEpoch}',
+      role: CopilotRole.assistant,
+      text: 'Hello! I\'m your **Selisco Assistant** on **${screenContext.screenName}**. I can create invoices, manage delivery notes with full amounts, look up catalog items, and report business intelligence. How can I help you today?',
+      timestamp: DateTime.now(),
+    );
+
+    final newId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+    final newSession = CopilotSession(
+      id: newId,
+      title: 'New Chat',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      messages: [welcomeMsg],
+      backendHistory: [],
+    );
+
+    setState(() {
+      _sessions.insert(0, newSession);
+      _currentSessionId = newId;
+      _messages.clear();
+      _messages.add(welcomeMsg);
+      _backendHistory = [];
     });
+
+    _saveSessions();
+    _scrollToBottom();
+  }
+
+  void _switchSession(String sessionId) {
+    if (sessionId == _currentSessionId) return;
+    _saveSessions();
+
+    final target = _sessions.firstWhere((s) => s.id == sessionId, orElse: () => _sessions.first);
+    setState(() {
+      _currentSessionId = target.id;
+      _messages.clear();
+      _messages.addAll(target.messages);
+      _backendHistory = List<Map<String, dynamic>>.from(target.backendHistory);
+    });
+
+    _saveSessions();
+    _scrollToBottom();
+  }
+
+  void _deleteSession(String sessionId) {
+    setState(() {
+      _sessions.removeWhere((s) => s.id == sessionId);
+      if (_currentSessionId == sessionId) {
+        if (_sessions.isNotEmpty) {
+          _currentSessionId = _sessions.first.id;
+          _messages.clear();
+          _messages.addAll(_sessions.first.messages);
+          _backendHistory = List<Map<String, dynamic>>.from(_sessions.first.backendHistory);
+        } else {
+          _createNewSession(saveCurrentFirst: false);
+        }
+      }
+    });
+    _saveSessions();
+  }
+
+  void _updateSessionTitle(String firstPrompt) {
+    final idx = _sessions.indexWhere((s) => s.id == _currentSessionId);
+    if (idx != -1 && (_sessions[idx].title == 'New Chat' || _sessions[idx].title.startsWith('Conversation'))) {
+      final clean = firstPrompt.trim().replaceAll('\n', ' ');
+      final title = clean.length > 28 ? '${clean.substring(0, 28)}...' : clean;
+      _sessions[idx] = _sessions[idx].copyWith(title: title);
+      _saveSessions();
+    }
+  }
+
+  void _showChatHistorySheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.70,
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 8, bottom: 4),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.history_rounded, color: AppColors.primary, size: 22),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Conversations',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(sheetCtx).pop();
+                            _createNewSession();
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('New Chat', style: TextStyle(fontSize: 13)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppColors.border),
+                  Expanded(
+                    child: _sessions.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No chat history yet',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: _sessions.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 8),
+                            itemBuilder: (ctx, i) {
+                              final session = _sessions[i];
+                              final isActive = session.id == _currentSessionId;
+                              final messageCount = session.messages.where((m) => !m.isError).length;
+
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.of(sheetCtx).pop();
+                                  _switchSession(session.id);
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                        ? AppColors.primary.withValues(alpha: 0.08)
+                                        : AppColors.background,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isActive ? AppColors.primary : AppColors.border,
+                                      width: isActive ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isActive
+                                              ? AppColors.primary.withValues(alpha: 0.15)
+                                              : AppColors.border.withValues(alpha: 0.3),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          isActive ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
+                                          size: 18,
+                                          color: isActive ? AppColors.primary : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    session.title,
+                                                    style: TextStyle(
+                                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                                                      fontSize: 14,
+                                                      color: isActive ? AppColors.primary : AppColors.textPrimary,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                if (isActive)
+                                                  Container(
+                                                    margin: const EdgeInsets.only(left: 6),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.primary,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: const Text(
+                                                      'ACTIVE',
+                                                      style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '$messageCount messages • ${_formatTimeAgo(session.updatedAt)}',
+                                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.textMuted),
+                                        tooltip: 'Delete Chat',
+                                        onPressed: () {
+                                          setModalState(() {
+                                            _deleteSession(session.id);
+                                          });
+                                          setState(() {});
+                                          if (_sessions.isEmpty) {
+                                            Navigator.of(sheetCtx).pop();
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatTimeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 
   void _scrollToBottom() {
@@ -137,8 +441,16 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
       timestamp: DateTime.now(),
     );
 
+    // Snapshot backend history so we can cleanly revert if error occurs
+    final historySnapshot = List<Map<String, dynamic>>.from(
+      _backendHistory.map((m) => Map<String, dynamic>.from(m)),
+    );
+
     // Add user message to backend history
     _backendHistory.add({'role': 'user', 'text': text});
+
+    // Update session title dynamically based on first prompt
+    _updateSessionTitle(text);
 
     setState(() {
       _messages.add(userMsg);
@@ -196,10 +508,10 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
         _isLoading = false;
       });
       _scrollToBottom();
-      _saveHistory();
+      _saveSessions();
     } catch (e) {
-      // Rollback the user message from backend history on error
-      if (_backendHistory.isNotEmpty) _backendHistory.removeLast();
+      // Revert backend history to snapshot to prevent corrupted turns
+      _backendHistory = historySnapshot;
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -269,7 +581,7 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
         _isProcessingAction = false;
       });
       _scrollToBottom();
-      _saveHistory();
+      _saveSessions();
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessingAction = false);
@@ -320,7 +632,7 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
         _isProcessingAction = false;
       });
       _scrollToBottom();
-      _saveHistory();
+      _saveSessions();
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessingAction = false);
@@ -340,6 +652,7 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
         final updatedAction = action.copyWith(undone: true);
         _messages[messageIndex] = _messages[messageIndex].copyWith(actionExecuted: updatedAction);
       });
+      _saveSessions();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: AppColors.success),
@@ -442,30 +755,75 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
                 const SizedBox(width: 4),
                 // Clear history button
                 IconButton(
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 20, color: AppColors.textSecondary),
-                  tooltip: 'Clear history',
-                  onPressed: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.remove(_kHistoryKey);
-                    await prefs.remove(_kBackendHistoryKey);
-                    setState(() {
-                      _messages.clear();
-                      _backendHistory.clear();
-                    });
-                    _addInitialGreeting();
-                  },
+                  icon: const Icon(Icons.history_rounded, size: 20, color: AppColors.textSecondary),
+                  tooltip: 'Chat History',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  onPressed: _showChatHistorySheet,
                 ),
+                const SizedBox(width: 4),
                 IconButton(
-                  icon: const Icon(Icons.settings_outlined, size: 20, color: AppColors.textSecondary),
-                  tooltip: 'Copilot Settings',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const CopilotSettingsScreen()),
-                    );
-                  },
+                  icon: const Icon(Icons.add_comment_outlined, size: 20, color: AppColors.textSecondary),
+                  tooltip: 'New Chat',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _createNewSession(),
                 ),
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20, color: AppColors.textSecondary),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  tooltip: 'More options',
+                  onSelected: (value) async {
+                    if (value == 'settings') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CopilotSettingsScreen()),
+                      );
+                    } else if (value == 'clear') {
+                      setState(() {
+                        _messages.clear();
+                        _backendHistory.clear();
+                      });
+                      final screenCtx = ref.read(screenContextProvider);
+                      final welcomeMsg = CopilotMessage(
+                        id: 'msg_welcome_${DateTime.now().millisecondsSinceEpoch}',
+                        role: CopilotRole.assistant,
+                        text: 'Chat cleared. How can I assist you with **${screenCtx.screenName}**?',
+                        timestamp: DateTime.now(),
+                      );
+                      _messages.add(welcomeMsg);
+                      _saveSessions();
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(
+                      value: 'settings',
+                      child: Row(
+                        children: [
+                          Icon(Icons.settings_outlined, size: 18, color: AppColors.textSecondary),
+                          SizedBox(width: 8),
+                          Text('Copilot Settings', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'clear',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_sweep_outlined, size: 18, color: AppColors.error),
+                          SizedBox(width: 8),
+                          Text('Clear Current Chat', style: TextStyle(fontSize: 13, color: AppColors.error)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20, color: AppColors.textSecondary),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -634,6 +992,47 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
                                 ? AppColors.error
                                 : AppColors.textPrimary,
                       ),
+                      if (msg.isError) ...[
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () {
+                            for (int i = index - 1; i >= 0; i--) {
+                              if (_messages[i].role == CopilotRole.user) {
+                                final lastText = _messages[i].text;
+                                setState(() {
+                                  _messages.removeAt(index);
+                                });
+                                _handleSendMessage(lastText);
+                                break;
+                              }
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.refresh_rounded, size: 13, color: AppColors.error),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Retry',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

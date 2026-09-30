@@ -53,6 +53,8 @@ export interface DeliveryNoteItem {
   product_name: string;
   ordered_quantity: number;
   delivered_quantity: number;
+  unit_price: number;
+  total_price: number;
   created_at?: string;
 }
 
@@ -65,6 +67,9 @@ export interface DeliveryNote {
   recipient_name?: string | null;
   recipient_signature_url?: string | null;
   notes?: string | null;
+  subtotal: number;
+  tax: number;
+  total_amount: number;
   dispatched_at?: string | null;
   delivered_at?: string | null;
   created_at: string;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_colors.dart';
+import '../core/security/app_lock_wrapper.dart';
 import '../core/services/app_update_service.dart';
 import '../features/invoices/presentation/screens/invoice_list_screen.dart';
 import '../features/delivery_notes/presentation/screens/delivery_note_list_screen.dart';
@@ -21,9 +22,9 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
   @override
   void initState() {
     super.initState();
-    // Check for updates automatically in the background on startup (throttled)
+    // Check for updates automatically whenever user enters the app signed in
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppUpdateService.checkOnStartup(context);
+      AppUpdateService.checkOnSignIn(context);
     });
   }
 
@@ -72,6 +73,16 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(appLockNotifierProvider, (previous, next) {
+      if (previous?.isLocked == true && !next.isLocked) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            AppUpdateService.checkOnSignIn(context);
+          }
+        });
+      }
+    });
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,

@@ -241,6 +241,7 @@ export const TOOL_REGISTRY: Record<string, ToolDef> = {
       const sql = `
         SELECT 
           dn.id, dn.note_number, dn.status, dn.recipient_name,
+          dn.subtotal, dn.tax, dn.total_amount,
           dn.dispatched_at, dn.delivered_at, i.invoice_number, i.customer_name
         FROM delivery_notes dn
         JOIN invoices i ON dn.invoice_id = i.id
@@ -250,9 +251,14 @@ export const TOOL_REGISTRY: Record<string, ToolDef> = {
       `;
 
       const res = await query(sql, values);
+      const rows = res.rows.map((r: any) => ({
+        ...r,
+        formatted_total: `${ctx.currency} ${Number(r.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      }));
+
       return {
-        count: res.rows.length,
-        delivery_notes: res.rows,
+        count: rows.length,
+        delivery_notes: rows,
       };
     },
   },
@@ -610,8 +616,8 @@ export const TOOL_REGISTRY: Record<string, ToolDef> = {
 
         const dnInsert = await client.query(
           `INSERT INTO delivery_notes (
-            invoice_id, business_id, note_number, status, recipient_name, notes, dispatched_at
-          ) VALUES ($1, $2, $3, 'PENDING', $4, $5, CURRENT_TIMESTAMP)
+            invoice_id, business_id, note_number, status, recipient_name, notes, dispatched_at, subtotal, tax, total_amount
+          ) VALUES ($1, $2, $3, 'PENDING', $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
           RETURNING *;`,
           [
             invoice.id,
@@ -619,23 +625,26 @@ export const TOOL_REGISTRY: Record<string, ToolDef> = {
             noteNumber,
             args.recipient_name || invoice.customer_name,
             args.notes || 'Items packed and prepared for delivery.',
+            invoice.subtotal || 0,
+            invoice.tax || 0,
+            invoice.total_amount || 0,
           ]
         );
 
         const deliveryNote = dnInsert.rows[0];
 
-        // Copy invoice items into delivery_note_items
+        // Copy invoice items into delivery_note_items with prices
         const itemsRes = await client.query(
-          'SELECT id, product_name, quantity FROM invoice_items WHERE invoice_id = $1',
+          'SELECT id, product_name, quantity, unit_price, total_price FROM invoice_items WHERE invoice_id = $1',
           [invoice.id]
         );
 
         for (const it of itemsRes.rows) {
           await client.query(
             `INSERT INTO delivery_note_items (
-              delivery_note_id, invoice_item_id, product_name, ordered_quantity, delivered_quantity
-            ) VALUES ($1, $2, $3, $4, 0);`,
-            [deliveryNote.id, it.id, it.product_name, it.quantity]
+              delivery_note_id, invoice_item_id, product_name, ordered_quantity, delivered_quantity, unit_price, total_price
+            ) VALUES ($1, $2, $3, $4, 0, $5, $6);`,
+            [deliveryNote.id, it.id, it.product_name, it.quantity, it.unit_price || 0, it.total_price || 0]
           );
         }
 
@@ -649,6 +658,8 @@ export const TOOL_REGISTRY: Record<string, ToolDef> = {
           note_number: deliveryNote.note_number,
           invoice_number: invoice.invoice_number,
           recipient_name: deliveryNote.recipient_name,
+          total_amount: Number(deliveryNote.total_amount || invoice.total_amount || 0),
+          formatted_amount: `${ctx.currency} ${Number(deliveryNote.total_amount || invoice.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
           items_count: itemsRes.rows.length,
         };
       } catch (err: any) {

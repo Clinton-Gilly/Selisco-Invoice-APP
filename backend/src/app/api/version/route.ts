@@ -2,7 +2,17 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// In-memory cache for GitHub release data to protect against API rate limits
+const HOSTED_VERSION = '1.1.0';
+const HOSTED_TAG = 'v1.1.0';
+const HOSTED_RELEASE_NAME = 'Selisco Mobile v1.1.0';
+const HOSTED_NOTES =
+  '• Added financial amounts, item unit prices, and subtotal/tax calculations to Delivery Notes.\n' +
+  '• Added Copilot AI Multi-Session Chat History with conversation switcher, + New Chat, and retry support.\n' +
+  '• Faster DeepSeek-Chat AI responses and prompt optimizations.\n' +
+  '• Direct cloud APK download and performance improvements.';
+const HOSTED_DOWNLOAD_URL = 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk';
+
+// In-memory cache for GitHub release data
 let cachedRelease: {
   timestamp: number;
   data: {
@@ -16,6 +26,18 @@ let cachedRelease: {
 } | null = null;
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function isVersionNewer(v1: string, v2: string): boolean {
+  const p1 = v1.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p2 = v2.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const a = p1[i] || 0;
+    const b = p2[i] || 0;
+    if (a > b) return true;
+    if (a < b) return false;
+  }
+  return false;
+}
 
 export async function GET() {
   const now = Date.now();
@@ -40,48 +62,51 @@ export async function GET() {
 
     if (ghRes.ok) {
       const release = await ghRes.json();
-      const tagName = release.tag_name || 'v1.0.1';
-      const version = tagName.replace(/^v/, '');
-      const releaseData = {
-        version,
-        tagName,
-        releaseName: release.name || `Version ${version}`,
-        releaseNotes: release.body || 'New features, improvements and bug fixes.',
-        downloadUrl: 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk',
-        publishedAt: release.published_at,
-      };
+      const tagName = release.tag_name || 'v1.0.0';
+      const ghVersion = tagName.replace(/^v/, '');
 
-      cachedRelease = {
-        timestamp: now,
-        data: releaseData,
-      };
+      // Only use GitHub release if it is newer than our hosted version
+      if (isVersionNewer(ghVersion, HOSTED_VERSION)) {
+        const releaseData = {
+          version: ghVersion,
+          tagName,
+          releaseName: release.name || `Version ${ghVersion}`,
+          releaseNotes: release.body || 'New features, improvements and bug fixes.',
+          downloadUrl: HOSTED_DOWNLOAD_URL,
+          publishedAt: release.published_at,
+        };
 
-      return NextResponse.json({
-        success: true,
-        data: releaseData,
-      });
+        cachedRelease = {
+          timestamp: now,
+          data: releaseData,
+        };
+
+        return NextResponse.json({
+          success: true,
+          data: releaseData,
+        });
+      }
     }
   } catch (err) {
     console.warn('Failed to fetch from GitHub releases:', err);
   }
 
-  // Fallback if cached version exists even if expired
-  if (cachedRelease) {
-    return NextResponse.json({
-      success: true,
-      data: cachedRelease.data,
-      stale: true,
-    });
-  }
+  const hostedData = {
+    version: HOSTED_VERSION,
+    tagName: HOSTED_TAG,
+    releaseName: HOSTED_RELEASE_NAME,
+    releaseNotes: HOSTED_NOTES,
+    downloadUrl: HOSTED_DOWNLOAD_URL,
+    publishedAt: new Date().toISOString(),
+  };
+
+  cachedRelease = {
+    timestamp: now,
+    data: hostedData,
+  };
 
   return NextResponse.json({
     success: true,
-    data: {
-      version: '1.0.1',
-      tagName: 'v1.0.1',
-      releaseName: 'Selisco Mobile v1.0.1',
-      releaseNotes: 'Prominent AI Assistant, direct 1-tap invoice sharing to WhatsApp & apps, and system updates.',
-      downloadUrl: 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk',
-    },
+    data: hostedData,
   });
 }

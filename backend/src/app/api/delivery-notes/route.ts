@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         i.customer_name,
         i.customer_phone,
         b.name as business_name,
+        b.currency,
         COUNT(dni.id)::int as item_count,
         SUM(dni.ordered_quantity)::numeric as total_ordered_quantity,
         SUM(dni.delivered_quantity)::numeric as total_delivered_quantity
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
       JOIN businesses b ON dn.business_id = b.id
       LEFT JOIN delivery_note_items dni ON dn.id = dni.delivery_note_id
       ${whereClause}
-      GROUP BY dn.id, i.invoice_number, i.customer_name, i.customer_phone, b.name
+      GROUP BY dn.id, i.invoice_number, i.customer_name, i.customer_phone, b.name, b.currency
       ORDER BY dn.created_at DESC;
     `;
 
@@ -56,6 +57,38 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching delivery notes:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch delivery notes' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { invoice_id, recipient_name, notes } = body;
+
+    if (!invoice_id) {
+      return NextResponse.json(
+        { success: false, error: 'invoice_id is required' },
+        { status: 400 }
+      );
+    }
+
+    // Reuse the conversion logic to guarantee identical behavior
+    const url = new URL(request.url);
+    const convertUrl = new URL(`/api/invoices/${invoice_id}/convert`, url.origin);
+    const convertRes = await fetch(convertUrl.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient_name, notes }),
+    });
+
+    const data = await convertRes.json();
+    return NextResponse.json(data, { status: convertRes.status });
+  } catch (error: any) {
+    console.error('Error creating delivery note:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to create delivery note' },
       { status: 500 }
     );
   }

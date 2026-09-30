@@ -54,8 +54,8 @@ export async function POST(
 
     const insertNoteSql = `
       INSERT INTO delivery_notes (
-        invoice_id, business_id, note_number, status, recipient_name, notes
-      ) VALUES ($1, $2, $3, 'PENDING', $4, $5)
+        invoice_id, business_id, note_number, status, recipient_name, notes, subtotal, tax, total_amount
+      ) VALUES ($1, $2, $3, 'PENDING', $4, $5, $6, $7, $8)
       RETURNING *;
     `;
 
@@ -65,19 +65,30 @@ export async function POST(
       noteNumber,
       recipient_name || invoice.customer_name,
       notes || `Generated from Invoice ${invoice.invoice_number}`,
+      invoice.subtotal || 0.00,
+      invoice.tax || 0.00,
+      invoice.total_amount || 0.00,
     ]);
 
     const createdNote = noteRes.rows[0];
 
-    // Populate delivery_note_items with ordered_quantity from invoice items
+    // Populate delivery_note_items with ordered_quantity and prices from invoice items
     const noteItems: any[] = [];
     for (const item of itemsRes.rows) {
       const itemRes = await client.query(
         `INSERT INTO delivery_note_items (
-          delivery_note_id, invoice_item_id, product_name, ordered_quantity, delivered_quantity
-        ) VALUES ($1, $2, $3, $4, $5)
+          delivery_note_id, invoice_item_id, product_name, ordered_quantity, delivered_quantity, unit_price, total_price
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *;`,
-        [createdNote.id, item.id, item.product_name, item.quantity, item.quantity]
+        [
+          createdNote.id,
+          item.id,
+          item.product_name,
+          item.quantity,
+          item.quantity,
+          item.unit_price || 0.00,
+          item.total_price || 0.00,
+        ]
       );
       noteItems.push(itemRes.rows[0]);
     }

@@ -85,7 +85,7 @@ export async function getCopilotSettings(businessId: string): Promise<ClientCopi
     preview = `••••${process.env.DEEPSEEK_API_KEY.slice(-4)}`;
   } else if (process.env.GEMINI_API_KEY) {
     envProvider = 'gemini';
-    envModel = 'gemini-2.5-flash';
+    envModel = 'gemini-2.0-flash';
     hasKey = true;
     preview = `••••${process.env.GEMINI_API_KEY.slice(-4)}`;
   } else if (process.env.OPENAI_API_KEY) {
@@ -192,7 +192,7 @@ export async function getResolvedProviderConfig(businessId: string): Promise<Pro
   );
 
   let provider: SupportedProvider = 'gemini';
-  let model = 'gemini-2.5-flash';
+  let model = 'gemini-2.0-flash';
   let apiKey = '';
   let readOnly = false;
   let confirmWrites = true;

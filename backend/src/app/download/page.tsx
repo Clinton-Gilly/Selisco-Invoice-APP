@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ShieldCheck, Smartphone, ArrowRight, CheckCircle } from 'lucide-react';
+import { Download, ShieldCheck, Smartphone, CheckCircle, Sparkles } from 'lucide-react';
 
 export default function DownloadPage() {
   return (
@@ -10,12 +10,18 @@ export default function DownloadPage() {
           <Smartphone className="w-10 h-10 text-indigo-400 animate-pulse" />
         </div>
 
+        {/* Version Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-300 text-xs font-semibold mb-3">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          Version 1.1.0 Available
+        </div>
+
         {/* Title */}
         <h1 className="text-2xl font-black tracking-tight text-white mb-2">
           Selisco Mobile Client
         </h1>
         <p className="text-slate-400 text-sm mb-6">
-          Invoice & Delivery Note Management with Enterprise Biometric Security & PDF Verification
+          Invoice &amp; Delivery Note Management with Full Financial Pricing &amp; Copilot AI
         </p>
 
         {/* Big Download Button */}
@@ -25,7 +31,7 @@ export default function DownloadPage() {
           className="inline-flex items-center justify-center gap-3 w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-base rounded-2xl shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 mb-4"
         >
           <Download className="w-5 h-5" />
-          Download & Install APK (Direct)
+          Download &amp; Install APK (v1.1.0)
         </a>
 
         <p className="text-xs text-slate-500 mb-6">
@@ -44,7 +50,7 @@ export default function DownloadPage() {
 
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          Secured with Local Biometrics & Neon DB
+          Secured with Local Biometrics &amp; Neon DB
         </div>
       </div>
     </div>
