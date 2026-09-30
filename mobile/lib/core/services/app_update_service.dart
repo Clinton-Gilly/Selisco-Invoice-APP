@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/api_constants.dart';
@@ -161,17 +162,94 @@ class AppUpdateService {
   }
 }
 
-class _UpdateDialog extends StatelessWidget {
+class _UpdateDialog extends StatefulWidget {
   final AppUpdateInfo info;
 
   const _UpdateDialog({required this.info});
+
+  @override
+  State<_UpdateDialog> createState() => _UpdateDialogState();
+}
+
+class _UpdateDialogState extends State<_UpdateDialog> {
+  bool _isLaunching = false;
+  String? _errorMessage;
+
+  Future<void> _handleUpdate() async {
+    setState(() {
+      _isLaunching = true;
+      _errorMessage = null;
+    });
+
+    final String apkUrl = widget.info.downloadUrl;
+    final Uri apkUri = Uri.parse(apkUrl);
+    final Uri portalUri = Uri.parse('https://backend-tau-puce-j0499ijf6d.vercel.app/download');
+
+    bool opened = false;
+
+    // Attempt 1: Open direct APK download in external browser
+    try {
+      opened = await launchUrl(apkUri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+
+    // Attempt 2: Open direct APK with platform default
+    if (!opened) {
+      try {
+        opened = await launchUrl(apkUri, mode: LaunchMode.platformDefault);
+      } catch (_) {}
+    }
+
+    // Attempt 3: Open download page in external browser
+    if (!opened) {
+      try {
+        opened = await launchUrl(portalUri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
+
+    // Attempt 4: Open download page with platform default
+    if (!opened) {
+      try {
+        opened = await launchUrl(portalUri, mode: LaunchMode.platformDefault);
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    if (opened) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Opening browser to download APK... Follow prompts to install.'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 6),
+        ),
+      );
+    } else {
+      setState(() {
+        _isLaunching = false;
+        _errorMessage = 'Could not open browser automatically. Please tap "Copy Link" below to download manually.';
+      });
+    }
+  }
+
+  void _copyLink() {
+    Clipboard.setData(ClipboardData(text: widget.info.downloadUrl));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Download link copied! Open Chrome and paste the URL to install.'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-      contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+      contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
       actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       title: Row(
         children: [
@@ -193,7 +271,7 @@ class _UpdateDialog extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  '${info.tagName} (Current: v${AppUpdateService.currentVersion})',
+                  '${widget.info.tagName} (Current: v${AppUpdateService.currentVersion})',
                   style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
@@ -224,8 +302,8 @@ class _UpdateDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    info.releaseNotes.isNotEmpty
-                        ? info.releaseNotes
+                    widget.info.releaseNotes.isNotEmpty
+                        ? widget.info.releaseNotes
                         : 'Bug fixes, performance improvements, and updated enterprise features.',
                     style: const TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.4),
                   ),
@@ -245,24 +323,57 @@ class _UpdateDialog extends StatelessWidget {
                 ),
               ],
             ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.errorBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, size: 16, color: AppColors.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(fontSize: 11, color: AppColors.error),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
+        if (_errorMessage != null)
+          TextButton.icon(
+            onPressed: _copyLink,
+            icon: const Icon(Icons.copy, size: 14),
+            label: const Text('Copy Link'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          ),
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isLaunching ? null : () => Navigator.pop(context),
           child: const Text('Later', style: TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton.icon(
-          onPressed: () async {
-            Navigator.pop(context);
-            final uri = Uri.parse(info.downloadUrl);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
-          icon: const Icon(Icons.download_rounded, size: 18),
-          label: const Text('Update Now', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: _isLaunching ? null : _handleUpdate,
+          icon: _isLaunching
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.download_rounded, size: 18),
+          label: Text(
+            _isLaunching ? 'Opening...' : 'Update Now',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
