@@ -2,8 +2,11 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Selisco Invoice Verification Portal',
-  description: 'Cryptographic document verification for Selisco Invoices and Delivery Notes',
+  title: {
+    default: 'Selisco | Cloud Operations Dashboard & Portal',
+    template: '%s | Selisco',
+  },
+  description: 'Enterprise Invoice & Delivery Note Management, Cryptographic Verification, and Cloud API Services for Selisco.',
 };
 
 export default function RootLayout({

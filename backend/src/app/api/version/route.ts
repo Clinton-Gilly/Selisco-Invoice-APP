@@ -10,7 +10,8 @@ const HOSTED_NOTES =
   '• Added Copilot AI Multi-Session Chat History with conversation switcher, + New Chat, and retry support.\n' +
   '• Faster DeepSeek-Chat AI responses and prompt optimizations.\n' +
   '• Direct cloud APK download and performance improvements.';
-const HOSTED_DOWNLOAD_URL = 'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk';
+const DEFAULT_HOST = process.env.NEXT_PUBLIC_APP_URL || 'https://backend-tau-puce-j0499ijf6d.vercel.app';
+const HOSTED_DOWNLOAD_URL = `${DEFAULT_HOST.replace(/\/$/, '')}/selisco.apk`;
 
 // In-memory cache for GitHub release data
 let cachedRelease: {
