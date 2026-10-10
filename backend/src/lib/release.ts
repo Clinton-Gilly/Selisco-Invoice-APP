@@ -19,14 +19,14 @@ export interface AppRelease {
 const DEFAULT_HOST = (process.env.NEXT_PUBLIC_APP_URL || 'https://backend-tau-puce-j0499ijf6d.vercel.app').replace(/\/$/, '');
 
 export const BUNDLED_RELEASE: AppRelease = {
-  version: '1.2.0',
-  tagName: 'v1.2.0',
-  releaseName: 'Selisco Mobile v1.2.0',
+  version: '1.3.0',
+  tagName: 'v1.3.0',
+  releaseName: 'Selisco Mobile v1.3.0',
   releaseNotes:
-    '- New: Quotations. Create price quotes for clients, share them as PDF and convert accepted quotes to invoices.\n' +
-    '- AI Assistant: clearer, shorter answers, no more double confirmation, and it can now prepare quotations.\n' +
-    '- Undo in the AI Assistant now correctly restores changes.\n' +
-    '- Fixed invoice and delivery note numbers clashing after a deletion.',
+    '- Updates now download and install right inside the app, with a live progress screen. No browser needed.\n' +
+    '- Quotations: create price quotes, share them as PDF and convert accepted quotes to invoices.\n' +
+    '- AI Assistant: clearer answers, no double confirmation, and it can prepare quotations.\n' +
+    '- Undo in the AI Assistant now correctly restores changes.',
   downloadUrl: `${DEFAULT_HOST}/selisco.apk`,
   minVersion: '1.0.0',
 };

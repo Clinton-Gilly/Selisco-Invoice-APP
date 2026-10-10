@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/api_constants.dart';
 import '../constants/app_colors.dart';
+import 'in_app_updater.dart';
+import 'update_download_screen.dart';
 
 class AppUpdateInfo {
   final String latestVersion;
@@ -201,6 +203,14 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   String? _errorMessage;
 
   Future<void> _handleUpdate() async {
+    // Android: download and install inside the app, no browser needed.
+    if (InAppUpdater.isSupported) {
+      final navigator = Navigator.of(context);
+      if (!widget.mandatory) navigator.pop();
+      await UpdateDownloadScreen.open(navigator.context, widget.info, mandatory: widget.mandatory);
+      return;
+    }
+
     setState(() {
       _isLaunching = true;
       _errorMessage = null;
