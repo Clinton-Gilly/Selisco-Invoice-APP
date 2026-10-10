@@ -88,6 +88,7 @@ export async function chatOpenAI(
 
   if (tools) {
     payload.tools = tools;
+    if (request.toolChoice === 'none') payload.tool_choice = 'none';
   }
 
   const res = await fetch(url, {
@@ -130,9 +131,18 @@ export async function chatOpenAI(
     }
   }
 
+  let text: string = message?.content || '';
+  let reasoning: string | undefined = message?.reasoning_content || undefined;
+  // Some reasoning models (e.g. on Groq) inline their thinking in <think> tags.
+  const think = text.match(/^\s*<think>([\s\S]*?)<\/think>\s*/);
+  if (think) {
+    reasoning = reasoning || think[1].trim();
+    text = text.slice(think[0].length);
+  }
+
   return {
-    text: message?.content || '',
-    reasoning: message?.reasoning_content || undefined,
+    text,
+    reasoning,
     toolCalls,
     raw: message,
     stopReason: choice?.finish_reason,

@@ -21,14 +21,17 @@ class ScreenContextNotifier extends Notifier<ScreenContext> {
     Map<String, dynamic>? formData,
     String? customNote,
   }) {
+    // Details from a previous screen (e.g. the invoice that was open) must not
+    // leak into the next one, or the assistant answers about the wrong record.
+    final sameScreen = route == state.route;
     state = ScreenContext(
       route: route,
       screenName: screenName,
-      activeTab: activeTab ?? state.activeTab,
-      visibleCount: visibleCount ?? state.visibleCount,
-      activeRecord: activeRecord ?? state.activeRecord,
-      formData: formData ?? state.formData,
-      customNote: customNote ?? state.customNote,
+      activeTab: activeTab ?? (sameScreen ? state.activeTab : null),
+      visibleCount: visibleCount ?? (sameScreen ? state.visibleCount : null),
+      activeRecord: activeRecord ?? (sameScreen ? state.activeRecord : null),
+      formData: formData ?? (sameScreen ? state.formData : null),
+      customNote: customNote ?? (sameScreen ? state.customNote : null),
     );
   }
 

@@ -1,113 +1,57 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { compareVersions, getCurrentRelease, isValidVersion, saveRelease } from '@/lib/release';
 
 export const dynamic = 'force-dynamic';
 
-const HOSTED_VERSION = '1.1.0';
-const HOSTED_TAG = 'v1.1.0';
-const HOSTED_RELEASE_NAME = 'Selisco Mobile v1.1.0';
-const HOSTED_NOTES =
-  '• Added financial amounts, item unit prices, and subtotal/tax calculations to Delivery Notes.\n' +
-  '• Added Copilot AI Multi-Session Chat History with conversation switcher, + New Chat, and retry support.\n' +
-  '• Faster DeepSeek-Chat AI responses and prompt optimizations.\n' +
-  '• Direct cloud APK download and performance improvements.';
-const DEFAULT_HOST = process.env.NEXT_PUBLIC_APP_URL || 'https://backend-tau-puce-j0499ijf6d.vercel.app';
-const HOSTED_DOWNLOAD_URL = `${DEFAULT_HOST.replace(/\/$/, '')}/selisco.apk`;
-
-// In-memory cache for GitHub release data
-let cachedRelease: {
-  timestamp: number;
-  data: {
-    version: string;
-    tagName: string;
-    releaseName: string;
-    releaseNotes: string;
-    downloadUrl: string;
-    publishedAt?: string;
-  };
-} | null = null;
-
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-function isVersionNewer(v1: string, v2: string): boolean {
-  const p1 = v1.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
-  const p2 = v2.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const a = p1[i] || 0;
-    const b = p2[i] || 0;
-    if (a > b) return true;
-    if (a < b) return false;
-  }
-  return false;
+// GET /api/version - Latest mobile release; installed apps compare against this on launch
+export async function GET() {
+  const release = await getCurrentRelease();
+  return NextResponse.json({ success: true, data: release });
 }
 
-export async function GET() {
-  const now = Date.now();
-  if (cachedRelease && now - cachedRelease.timestamp < CACHE_TTL_MS) {
-    return NextResponse.json({
-      success: true,
-      data: cachedRelease.data,
-      cached: true,
-    });
+// POST /api/version - Publish a new release remotely (requires RELEASE_ADMIN_TOKEN)
+export async function POST(request: NextRequest) {
+  const adminToken = process.env.RELEASE_ADMIN_TOKEN;
+  if (!adminToken) {
+    return NextResponse.json(
+      { success: false, error: 'Remote releases are disabled: RELEASE_ADMIN_TOKEN is not configured.' },
+      { status: 503 }
+    );
+  }
+  if (request.headers.get('x-admin-token') !== adminToken) {
+    return NextResponse.json({ success: false, error: 'Invalid admin token.' }, { status: 401 });
   }
 
   try {
-    const ghRes = await fetch(
-      'https://api.github.com/repos/Clinton-Gilly/Selisco-Invoice-APP/releases/latest',
-      {
-        headers: {
-          Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'Selisco-Update-Service',
-        },
-      }
-    );
+    const body = await request.json();
+    const { version, releaseNotes = '', downloadUrl, minVersion = '1.0.0' } = body;
 
-    if (ghRes.ok) {
-      const release = await ghRes.json();
-      const tagName = release.tag_name || 'v1.0.0';
-      const ghVersion = tagName.replace(/^v/, '');
-
-      // Only use GitHub release if it is newer than our hosted version
-      if (isVersionNewer(ghVersion, HOSTED_VERSION)) {
-        const releaseData = {
-          version: ghVersion,
-          tagName,
-          releaseName: release.name || `Version ${ghVersion}`,
-          releaseNotes: release.body || 'New features, improvements and bug fixes.',
-          downloadUrl: HOSTED_DOWNLOAD_URL,
-          publishedAt: release.published_at,
-        };
-
-        cachedRelease = {
-          timestamp: now,
-          data: releaseData,
-        };
-
-        return NextResponse.json({
-          success: true,
-          data: releaseData,
-        });
-      }
+    if (!isValidVersion(version)) {
+      return NextResponse.json({ success: false, error: 'Version must look like 1.2.0' }, { status: 400 });
     }
-  } catch (err) {
-    console.warn('Failed to fetch from GitHub releases:', err);
+    if (!isValidVersion(minVersion)) {
+      return NextResponse.json({ success: false, error: 'Minimum version must look like 1.0.0' }, { status: 400 });
+    }
+    if (compareVersions(minVersion, version) > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Minimum version cannot be higher than the latest version.' },
+        { status: 400 }
+      );
+    }
+    if (typeof downloadUrl !== 'string' || !/^https:\/\//.test(downloadUrl.trim())) {
+      return NextResponse.json(
+        { success: false, error: 'Download link must be an https:// URL to the APK.' },
+        { status: 400 }
+      );
+    }
+
+    const release = await saveRelease({ version, releaseNotes: String(releaseNotes), downloadUrl, minVersion });
+    return NextResponse.json({ success: true, data: release });
+  } catch (error: any) {
+    console.error('Failed to save release:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to save release' },
+      { status: 500 }
+    );
   }
-
-  const hostedData = {
-    version: HOSTED_VERSION,
-    tagName: HOSTED_TAG,
-    releaseName: HOSTED_RELEASE_NAME,
-    releaseNotes: HOSTED_NOTES,
-    downloadUrl: HOSTED_DOWNLOAD_URL,
-    publishedAt: new Date().toISOString(),
-  };
-
-  cachedRelease = {
-    timestamp: now,
-    data: hostedData,
-  };
-
-  return NextResponse.json({
-    success: true,
-    data: hostedData,
-  });
 }

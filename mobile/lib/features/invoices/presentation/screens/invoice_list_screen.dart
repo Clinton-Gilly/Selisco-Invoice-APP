@@ -96,13 +96,13 @@ class InvoiceListScreen extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'update',
                 child: Row(
                   children: [
-                    Icon(Icons.system_update_rounded, size: 20, color: AppColors.primary),
-                    SizedBox(width: 12),
-                    Text('Check for Updates'),
+                    const Icon(Icons.system_update_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 12),
+                    Text('Check for Updates (v${AppUpdateService.currentVersion})'),
                   ],
                 ),
               ),

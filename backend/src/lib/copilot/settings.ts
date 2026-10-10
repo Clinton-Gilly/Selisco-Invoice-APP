@@ -11,8 +11,8 @@ export async function ensureCopilotTables(): Promise<void> {
       CREATE TABLE IF NOT EXISTS copilot_settings (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-        provider VARCHAR(50) NOT NULL DEFAULT 'gemini',
-        model VARCHAR(100) NOT NULL DEFAULT 'gemini-2.0-flash',
+        provider VARCHAR(50) NOT NULL DEFAULT 'deepseek',
+        model VARCHAR(100) NOT NULL DEFAULT 'deepseek-chat',
         api_key_encrypted TEXT,
         api_key_preview VARCHAR(10),
         read_only BOOLEAN NOT NULL DEFAULT FALSE,
@@ -73,37 +73,11 @@ export async function getCopilotSettings(businessId: string): Promise<ClientCopi
   }
 
   // Fallback to default environment configuration
-  let envProvider: SupportedProvider = 'deepseek';
-  let envModel = 'deepseek-chat';
-  let hasKey = false;
-  let preview: string | undefined;
-
-  if (process.env.DEEPSEEK_API_KEY) {
-    envProvider = 'deepseek';
-    envModel = 'deepseek-chat';
-    hasKey = true;
-    preview = `••••${process.env.DEEPSEEK_API_KEY.slice(-4)}`;
-  } else if (process.env.GEMINI_API_KEY) {
-    envProvider = 'gemini';
-    envModel = 'gemini-2.0-flash';
-    hasKey = true;
-    preview = `••••${process.env.GEMINI_API_KEY.slice(-4)}`;
-  } else if (process.env.OPENAI_API_KEY) {
-    envProvider = 'openai';
-    envModel = 'gpt-4o-mini';
-    hasKey = true;
-    preview = `••••${process.env.OPENAI_API_KEY.slice(-4)}`;
-  } else if (process.env.GROQ_API_KEY) {
-    envProvider = 'groq';
-    envModel = 'llama-3.3-70b-versatile';
-    hasKey = true;
-    preview = `••••${process.env.GROQ_API_KEY.slice(-4)}`;
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    envProvider = 'anthropic';
-    envModel = 'claude-3-7-sonnet-latest';
-    hasKey = true;
-    preview = `••••${process.env.ANTHROPIC_API_KEY.slice(-4)}`;
-  }
+  const env = getEnvDefault();
+  const envProvider = env?.provider || 'deepseek';
+  const envModel = env?.model || 'deepseek-chat';
+  const hasKey = Boolean(env);
+  const preview = env ? `••••${env.apiKey.slice(-4)}` : undefined;
 
   return {
     provider: envProvider,
@@ -191,8 +165,10 @@ export async function getResolvedProviderConfig(businessId: string): Promise<Pro
     [businessId]
   );
 
-  let provider: SupportedProvider = 'gemini';
-  let model = 'gemini-2.0-flash';
+  // With no saved settings, use the same env-based default the settings screen shows.
+  const env = getEnvDefault();
+  let provider: SupportedProvider = env?.provider || 'deepseek';
+  let model = env?.model || 'deepseek-chat';
   let apiKey = '';
   let readOnly = false;
   let confirmWrites = true;
@@ -224,6 +200,22 @@ export async function getResolvedProviderConfig(businessId: string): Promise<Pro
     readOnly,
     confirmWrites,
   };
+}
+
+const ENV_DEFAULTS: { provider: SupportedProvider; model: string }[] = [
+  { provider: 'deepseek', model: 'deepseek-chat' },
+  { provider: 'gemini', model: 'gemini-2.5-flash' },
+  { provider: 'openai', model: 'gpt-4.1-mini' },
+  { provider: 'groq', model: 'llama-3.3-70b-versatile' },
+  { provider: 'anthropic', model: 'claude-sonnet-5-5' },
+];
+
+function getEnvDefault(): { provider: SupportedProvider; model: string; apiKey: string } | undefined {
+  for (const d of ENV_DEFAULTS) {
+    const apiKey = getEnvKeyForProvider(d.provider);
+    if (apiKey) return { ...d, apiKey };
+  }
+  return undefined;
 }
 
 function getEnvKeyForProvider(provider: SupportedProvider): string | undefined {

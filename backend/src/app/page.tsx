@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { query } from '@/lib/db';
+import { getCurrentRelease } from '@/lib/release';
 import {
   FileText,
   Truck,
@@ -20,6 +21,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  const release = await getCurrentRelease();
   let stats = {
     totalRevenue: 0,
     grossBilled: 0,
@@ -254,7 +256,7 @@ export default async function DashboardPage() {
               <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5 group-hover:scale-105 transition-transform">
                 <Download className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Selisco Mobile Client (v1.1.0)</h3>
+              <h3 className="text-lg font-bold text-white mb-2">Selisco Mobile Client (v{release.version})</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Android client featuring biometric lock, offline storage, AI Copilot, 1-tap WhatsApp sharing, and automatic OTA cloud updates.
               </p>
@@ -267,7 +269,7 @@ export default async function DashboardPage() {
                 Download Page
               </Link>
               <a
-                href="/selisco.apk"
+                href={release.downloadUrl}
                 download="selisco.apk"
                 className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold text-center transition"
               >

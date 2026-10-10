@@ -3,7 +3,7 @@ import { ChatMessage, ChatRequest, ChatResponse, ToolCall, ToolDef } from '../ty
 export async function chatAnthropic(
   request: ChatRequest,
   apiKey: string,
-  modelName: string = 'claude-3-7-sonnet-latest'
+  modelName: string = 'claude-sonnet-5-5'
 ): Promise<ChatResponse> {
   const url = 'https://api.anthropic.com/v1/messages';
 
@@ -89,6 +89,7 @@ export async function chatAnthropic(
 
   if (tools) {
     payload.tools = tools;
+    if (request.toolChoice === 'none') payload.tool_choice = { type: 'none' };
   }
 
   const res = await fetch(url, {

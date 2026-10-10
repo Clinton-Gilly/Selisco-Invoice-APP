@@ -4,6 +4,7 @@ import '../core/constants/app_colors.dart';
 import '../core/security/app_lock_wrapper.dart';
 import '../core/services/app_update_service.dart';
 import '../features/invoices/presentation/screens/invoice_list_screen.dart';
+import '../features/quotations/presentation/screens/quotation_list_screen.dart';
 import '../features/delivery_notes/presentation/screens/delivery_note_list_screen.dart';
 import '../features/analytics/presentation/screens/analytics_dashboard_screen.dart';
 import '../features/products/presentation/screens/product_catalog_screen.dart';
@@ -30,6 +31,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
 
   final List<Widget> _screens = const [
     InvoiceListScreen(),
+    QuotationListScreen(),
     DeliveryNoteListScreen(),
     ProductCatalogScreen(),
     AnalyticsDashboardScreen(),
@@ -49,19 +51,26 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
         break;
       case 1:
         contextNotifier.updateScreen(
+          route: '/quotations',
+          screenName: 'Quotations',
+          customNote: 'Quotations list: price quotes sent to customers and their status.',
+        );
+        break;
+      case 2:
+        contextNotifier.updateScreen(
           route: '/deliveries',
           screenName: 'Delivery Notes',
           customNote: 'Delivery tracking screen for dispatch and delivery receipts.',
         );
         break;
-      case 2:
+      case 3:
         contextNotifier.updateScreen(
           route: '/catalog',
           screenName: 'Product Catalog',
           customNote: 'Surgical & orthopaedic implants and instruments catalog with pricing.',
         );
         break;
-      case 3:
+      case 4:
         contextNotifier.updateScreen(
           route: '/analytics',
           screenName: 'Analytics',
@@ -102,6 +111,11 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
               icon: Icon(Icons.receipt_long_outlined),
               selectedIcon: Icon(Icons.receipt_long, color: AppColors.primary),
               label: 'Invoices',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.request_quote_outlined),
+              selectedIcon: Icon(Icons.request_quote, color: AppColors.primary),
+              label: 'Quotes',
             ),
             NavigationDestination(
               icon: Icon(Icons.local_shipping_outlined),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, getClient } from '@/lib/db';
 import { generateVerificationToken } from '@/utils/crypto';
+import { nextDocumentNumber } from '@/lib/numbering';
 
 export const dynamic = 'force-dynamic';
 
@@ -133,13 +134,7 @@ export async function POST(request: NextRequest) {
     await client.query('BEGIN');
 
     // Generate sequential invoice number (e.g. INV-2026-000X)
-    const countRes = await client.query(
-      'SELECT COUNT(*)::int as total FROM invoices WHERE business_id = $1',
-      [selectedBusinessId]
-    );
-    const invoiceSeq = (countRes.rows[0].total + 1).toString().padStart(4, '0');
-    const currentYear = new Date().getFullYear();
-    const invoiceNumber = `INV-${currentYear}-${invoiceSeq}`;
+    const invoiceNumber = await nextDocumentNumber(client, 'invoices', 'INV', selectedBusinessId);
 
     const verificationToken = generateVerificationToken();
     const resolvedIssueDate = issued_date || new Date().toISOString().split('T')[0];

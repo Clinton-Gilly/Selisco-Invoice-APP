@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/api_constants.dart';
@@ -12,6 +13,8 @@ class AppUpdateInfo {
   final String releaseName;
   final String releaseNotes;
   final String downloadUrl;
+  /// Installed versions below this cannot dismiss the update prompt.
+  final String minVersion;
 
   const AppUpdateInfo({
     required this.latestVersion,
@@ -19,12 +22,26 @@ class AppUpdateInfo {
     required this.releaseName,
     required this.releaseNotes,
     required this.downloadUrl,
+    this.minVersion = '0.0.0',
   });
 }
 
 class AppUpdateService {
-  static const String currentVersion = '1.1.0';
   static const String _kLastCheckKey = 'last_update_check_timestamp';
+
+  /// Installed version, read from the APK itself (pubspec `version:`) so it can't drift.
+  static String currentVersion = '0.0.0';
+  static bool _dialogOpen = false;
+
+  static Future<String> loadCurrentVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      currentVersion = info.version;
+    } catch (e) {
+      debugPrint('Could not read app version: $e');
+    }
+    return currentVersion;
+  }
 
   /// Compare two semantic version strings (e.g. "1.1.0" vs "1.0.1")
   static bool isVersionNewer(String latest, String current) {
@@ -69,6 +86,7 @@ class AppUpdateService {
           releaseNotes: d['releaseNotes']?.toString() ?? '',
           downloadUrl: d['downloadUrl']?.toString() ??
               'https://backend-tau-puce-j0499ijf6d.vercel.app/selisco.apk',
+          minVersion: d['minVersion']?.toString() ?? '0.0.0',
         );
       }
     } catch (e) {
@@ -140,16 +158,22 @@ class AppUpdateService {
     bool isAutomated = false,
     bool showNoUpdateSnackBar = false,
   }) async {
+    if (currentVersion == '0.0.0') await loadCurrentVersion();
     final info = await fetchLatestUpdateInfo();
 
     if (!context.mounted) return;
 
     if (info != null && isVersionNewer(info.latestVersion, currentVersion)) {
-      showDialog(
+      // The check runs on launch and after unlock; never stack two prompts.
+      if (_dialogOpen) return;
+      _dialogOpen = true;
+      final mandatory = isVersionNewer(info.minVersion, currentVersion);
+      await showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (dlgContext) => _UpdateDialog(info: info),
+        builder: (dlgContext) => _UpdateDialog(info: info, mandatory: mandatory),
       );
+      _dialogOpen = false;
     } else if (showNoUpdateSnackBar) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -164,8 +188,9 @@ class AppUpdateService {
 
 class _UpdateDialog extends StatefulWidget {
   final AppUpdateInfo info;
+  final bool mandatory;
 
-  const _UpdateDialog({required this.info});
+  const _UpdateDialog({required this.info, this.mandatory = false});
 
   @override
   State<_UpdateDialog> createState() => _UpdateDialogState();
@@ -216,6 +241,10 @@ class _UpdateDialogState extends State<_UpdateDialog> {
     if (!mounted) return;
 
     if (opened) {
+      if (widget.mandatory) {
+        setState(() => _isLaunching = false);
+        return;
+      }
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -246,6 +275,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !widget.mandatory,
+      child: _buildDialog(context),
+    );
+  }
+
+  Widget _buildDialog(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
@@ -266,13 +302,32 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Update Available!',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
                 Text(
-                  '${widget.info.tagName} (Current: v${AppUpdateService.currentVersion})',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  widget.mandatory ? 'Update Required' : 'Update Available!',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'v${AppUpdateService.currentVersion}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const Icon(Icons.arrow_forward, size: 12, color: AppColors.textSecondary),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'v${widget.info.latestVersion}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -284,6 +339,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.mandatory) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'This version is no longer supported. Please install the update to keep using the app.',
+                style: TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
+              ),
+            ],
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -357,10 +419,11 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             label: const Text('Copy Link'),
             style: TextButton.styleFrom(foregroundColor: AppColors.primary),
           ),
-        TextButton(
-          onPressed: _isLaunching ? null : () => Navigator.pop(context),
-          child: const Text('Later', style: TextStyle(color: AppColors.textSecondary)),
-        ),
+        if (!widget.mandatory)
+          TextButton(
+            onPressed: _isLaunching ? null : () => Navigator.pop(context),
+            child: const Text('Later', style: TextStyle(color: AppColors.textSecondary)),
+          ),
         ElevatedButton.icon(
           onPressed: _isLaunching ? null : _handleUpdate,
           icon: _isLaunching

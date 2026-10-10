@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient } from '@/lib/db';
+import { nextDocumentNumber } from '@/lib/numbering';
 
 // POST /api/invoices/[id]/convert - 1-click convert invoice to delivery note
 export async function POST(
@@ -44,13 +45,7 @@ export async function POST(
     await client.query('BEGIN');
 
     // Generate unique note number e.g. DN-2026-0001 or derived from invoice_number
-    const countRes = await client.query(
-      'SELECT COUNT(*)::int as total FROM delivery_notes WHERE business_id = $1',
-      [invoice.business_id]
-    );
-    const noteSeq = (countRes.rows[0].total + 1).toString().padStart(4, '0');
-    const currentYear = new Date().getFullYear();
-    const noteNumber = `DN-${currentYear}-${noteSeq}`;
+    const noteNumber = await nextDocumentNumber(client, 'delivery_notes', 'DN', invoice.business_id);
 
     const insertNoteSql = `
       INSERT INTO delivery_notes (

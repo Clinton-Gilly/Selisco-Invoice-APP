@@ -56,7 +56,7 @@ export async function chatGemini(
       } catch (_) {}
 
       rawContents.push({
-        role: 'function',
+        role: 'user',
         parts: [
           {
             functionResponse: {
@@ -104,6 +104,9 @@ export async function chatGemini(
 
   if (tools) {
     payload.tools = tools;
+    if (request.toolChoice === 'none') {
+      payload.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
+    }
   }
 
   const res = await fetch(url, {
@@ -132,10 +135,12 @@ export async function chatGemini(
 
   for (const part of parts) {
     if (part.text) {
-      text += part.text;
-    }
-    if (part.thought) {
-      reasoning += part.thought;
+      // Thinking models mark thought summaries with `thought: true`
+      if (part.thought === true) {
+        reasoning += part.text;
+      } else {
+        text += part.text;
+      }
     }
     if (part.functionCall) {
       toolCalls.push({

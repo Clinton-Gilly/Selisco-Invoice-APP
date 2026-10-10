@@ -66,6 +66,8 @@ export interface ChatRequest {
   system?: string;
   messages: ChatMessage[];
   tools?: ToolDef[];
+  /** 'none' forces a plain-text reply even though tools are offered. */
+  toolChoice?: 'auto' | 'none';
   temperature?: number;
 }
 

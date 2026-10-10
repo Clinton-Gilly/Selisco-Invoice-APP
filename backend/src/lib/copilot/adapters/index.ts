@@ -11,7 +11,7 @@ export async function chat(config: ProviderConfig, request: ChatRequest): Promis
       return await chatGemini(request, config.apiKey, config.model || 'gemini-2.5-flash');
 
     case 'openai':
-      return await chatOpenAI(request, config.apiKey, config.model || 'gpt-4o-mini');
+      return await chatOpenAI(request, config.apiKey, config.model || 'gpt-4.1-mini');
 
     case 'groq':
       return await chatOpenAI(
@@ -33,7 +33,7 @@ export async function chat(config: ProviderConfig, request: ChatRequest): Promis
       return await chatAnthropic(
         request,
         config.apiKey,
-        config.model || 'claude-3-7-sonnet-latest'
+        config.model || 'claude-sonnet-5-5'
       );
 
     default:
@@ -61,43 +61,28 @@ export const AVAILABLE_PROVIDERS: AvailableProviderInfo[] = [
     id: 'gemini',
     name: 'Google Gemini',
     dialect: 'gemini',
-    defaultModel: 'gemini-2.0-flash',
-    models: [
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-    ],
+    defaultModel: 'gemini-2.5-flash',
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
   },
   {
     id: 'openai',
     name: 'OpenAI',
     dialect: 'openai',
-    defaultModel: 'gpt-4o-mini',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o3-mini', 'o1'],
+    defaultModel: 'gpt-4.1-mini',
+    models: ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini', 'gpt-4o', 'o4-mini'],
   },
   {
     id: 'groq',
-    name: 'Groq (Fast Llama & DeepSeek)',
+    name: 'Groq (Fast Llama)',
     dialect: 'openai',
     defaultModel: 'llama-3.3-70b-versatile',
-    models: [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'deepseek-r1-distill-llama-70b',
-      'mixtral-8x7b-32768',
-    ],
+    models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'openai/gpt-oss-120b'],
   },
   {
     id: 'anthropic',
     name: 'Anthropic Claude',
     dialect: 'anthropic',
-    defaultModel: 'claude-3-7-sonnet-latest',
-    models: [
-      'claude-3-7-sonnet-latest',
-      'claude-3-5-sonnet-latest',
-      'claude-3-5-haiku-latest',
-      'claude-3-opus-latest',
-    ],
+    defaultModel: 'claude-sonnet-5-5',
+    models: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-sonnet-4-5'],
   },
 ];

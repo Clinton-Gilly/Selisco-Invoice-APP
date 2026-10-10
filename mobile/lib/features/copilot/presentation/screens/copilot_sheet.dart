@@ -453,6 +453,13 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
     _updateSessionTitle(text);
 
     setState(() {
+      // A new message supersedes any unanswered Approve/Decline card; the server
+      // records those actions as not executed.
+      for (int i = 0; i < _messages.length; i++) {
+        if (_messages[i].pendingAction != null) {
+          _messages[i] = _messages[i].clearPendingAction();
+        }
+      }
       _messages.add(userMsg);
       _isLoading = true;
     });
@@ -565,9 +572,16 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
         );
       }
 
+      ProposedAction? nextAction;
+      if (data['pendingAction'] is Map) {
+        nextAction = ProposedAction.fromJson(
+          Map<String, dynamic>.from(data['pendingAction'] as Map),
+        );
+      }
+
       if (!mounted) return;
       setState(() {
-        _messages[messageIndex] = _messages[messageIndex].copyWith(pendingAction: null);
+        _messages[messageIndex] = _messages[messageIndex].clearPendingAction();
         _messages.add(
           CopilotMessage(
             id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
@@ -575,6 +589,7 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
             text: replyText,
             reasoning: reasoning,
             actionExecuted: executed,
+            pendingAction: nextAction,
             timestamp: DateTime.now(),
           ),
         );
@@ -620,7 +635,7 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
 
       if (!mounted) return;
       setState(() {
-        _messages[messageIndex] = _messages[messageIndex].copyWith(pendingAction: null);
+        _messages[messageIndex] = _messages[messageIndex].clearPendingAction();
         _messages.add(
           CopilotMessage(
             id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
@@ -672,6 +687,13 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
           'Add new product: Titanium Mesh 10x10cm at KES 35,000',
           'Find cortical screws in catalog',
           'List available straight plates',
+        ];
+      case '/quotations':
+      case '/quotations/detail':
+        return [
+          'Prepare a quote for Nairobi West Hospital: 2 Straight T-plates',
+          'Which quotations are still waiting for a reply?',
+          'Convert the last accepted quote to an invoice',
         ];
       case '/deliveries':
         return [
@@ -1147,47 +1169,157 @@ class _CopilotSheetState extends ConsumerState<CopilotSheet> {
     );
   }
 
-  /// Renders text with **bold** and *italic* markdown as real rich text.
+  /// Renders the subset of markdown the assistant uses: headings, bullet and
+  /// numbered lists, tables, and inline **bold**, *italic* and `code`.
   Widget _buildMarkdownText(String text, {required Color baseColor}) {
-    final spans = <TextSpan>[];
-    // Match **bold**, *italic*, or plain text segments
-    final pattern = RegExp(r'\*\*(.+?)\*\*|\*(.+?)\*|([^*]+)', dotAll: true);
-    for (final match in pattern.allMatches(text)) {
-      if (match.group(1) != null) {
-        // **bold**
-        spans.add(TextSpan(
-          text: match.group(1),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            color: baseColor,
-            height: 1.35,
-          ),
-        ));
-      } else if (match.group(2) != null) {
-        // *italic*
-        spans.add(TextSpan(
-          text: match.group(2),
-          style: TextStyle(
-            fontStyle: FontStyle.italic,
-            fontSize: 14,
-            color: baseColor,
-            height: 1.35,
-          ),
-        ));
-      } else if (match.group(3) != null) {
-        // plain text
-        spans.add(TextSpan(
-          text: match.group(3),
-          style: TextStyle(
-            fontSize: 14,
-            color: baseColor,
-            height: 1.35,
-          ),
-        ));
-      }
+    final lines = text.replaceAll('\r\n', '\n').trim().split('\n');
+    final blocks = <Widget>[];
+    var paragraph = <String>[];
+
+    void flushParagraph() {
+      if (paragraph.isEmpty) return;
+      blocks.add(_inlineMarkdown(paragraph.join('\n'), baseColor: baseColor));
+      paragraph = [];
     }
-    return SelectableText.rich(TextSpan(children: spans));
+
+    final bullet = RegExp(r'^\s*[-*•]\s+(.*)$');
+    final numbered = RegExp(r'^\s*(\d+)[.)]\s+(.*)$');
+    final heading = RegExp(r'^\s*#{1,6}\s+(.*)$');
+    final tableRow = RegExp(r'^\s*\|.*\|\s*$');
+    final tableDivider = RegExp(r'^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$');
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+
+      if (line.trim().isEmpty) {
+        flushParagraph();
+        continue;
+      }
+
+      final h = heading.firstMatch(line);
+      if (h != null) {
+        flushParagraph();
+        blocks.add(_inlineMarkdown(h.group(1)!, baseColor: baseColor, fontSize: 15, bold: true));
+        continue;
+      }
+
+      if (tableRow.hasMatch(line)) {
+        flushParagraph();
+        final rows = <List<String>>[];
+        while (i < lines.length && tableRow.hasMatch(lines[i])) {
+          if (!tableDivider.hasMatch(lines[i])) {
+            final cells = lines[i].trim();
+            rows.add(cells.substring(1, cells.length - 1).split('|').map((c) => c.trim()).toList());
+          }
+          i++;
+        }
+        i--;
+        blocks.add(_buildTable(rows, baseColor: baseColor));
+        continue;
+      }
+
+      final b = bullet.firstMatch(line);
+      final n = b == null ? numbered.firstMatch(line) : null;
+      if (b != null || n != null) {
+        flushParagraph();
+        final marker = b != null ? '•' : '${n!.group(1)}.';
+        final content = b != null ? b.group(1)! : n!.group(2)!;
+        final indent = (line.length - line.trimLeft().length) >= 2 ? 14.0 : 0.0;
+        blocks.add(Padding(
+          padding: EdgeInsets.only(left: indent),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 18,
+                child: Text(marker, style: TextStyle(fontSize: 14, color: baseColor, height: 1.35)),
+              ),
+              Expanded(child: _inlineMarkdown(content, baseColor: baseColor)),
+            ],
+          ),
+        ));
+        continue;
+      }
+
+      paragraph.add(line);
+    }
+    flushParagraph();
+
+    if (blocks.length == 1) return blocks.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < blocks.length; i++) ...[
+          if (i > 0) const SizedBox(height: 4),
+          blocks[i],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTable(List<List<String>> rows, {required Color baseColor}) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final columns = rows.map((r) => r.length).reduce((a, b) => a > b ? a : b);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Table(
+          defaultColumnWidth: const IntrinsicColumnWidth(),
+          border: TableBorder.all(color: AppColors.border, width: 0.6),
+          children: [
+            for (int r = 0; r < rows.length; r++)
+              TableRow(
+                decoration: r == 0 ? BoxDecoration(color: AppColors.primary.withValues(alpha: 0.06)) : null,
+                children: [
+                  for (int c = 0; c < columns; c++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      child: _inlineMarkdown(
+                        c < rows[r].length ? rows[r][c] : '',
+                        baseColor: baseColor,
+                        fontSize: 12.5,
+                        bold: r == 0,
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _inlineMarkdown(String text, {required Color baseColor, double fontSize = 14, bool bold = false}) {
+    final base = TextStyle(
+      fontSize: fontSize,
+      color: baseColor,
+      height: 1.35,
+      fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+    );
+    final spans = <TextSpan>[];
+    final pattern = RegExp(r'\*\*(.+?)\*\*|`([^`]+)`|(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])', dotAll: true);
+    int last = 0;
+    for (final m in pattern.allMatches(text)) {
+      if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start)));
+      if (m.group(1) != null) {
+        spans.add(TextSpan(text: m.group(1), style: const TextStyle(fontWeight: FontWeight.bold)));
+      } else if (m.group(2) != null) {
+        spans.add(TextSpan(
+          text: m.group(2),
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: fontSize - 1,
+            backgroundColor: baseColor.withValues(alpha: 0.08),
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(text: m.group(3), style: const TextStyle(fontStyle: FontStyle.italic)));
+      }
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return SelectableText.rich(TextSpan(style: base, children: spans));
   }
 
   Widget _buildLoadingIndicator() {

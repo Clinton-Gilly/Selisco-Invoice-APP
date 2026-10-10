@@ -58,6 +58,26 @@ class StatusBadge extends StatelessWidget {
           fg = AppColors.textSecondary;
           label = 'Draft';
           break;
+        case 'SENT':
+          bg = AppColors.infoBg;
+          fg = AppColors.info;
+          label = 'Sent';
+          break;
+        case 'ACCEPTED':
+          bg = AppColors.successBg;
+          fg = AppColors.success;
+          label = 'Accepted';
+          break;
+        case 'DECLINED':
+          bg = AppColors.errorBg;
+          fg = AppColors.error;
+          label = 'Declined';
+          break;
+        case 'INVOICED':
+          bg = AppColors.primary.withValues(alpha: 0.1);
+          fg = AppColors.primary;
+          label = 'Invoiced';
+          break;
         case 'CANCELLED':
           bg = AppColors.errorBg;
           fg = AppColors.error;

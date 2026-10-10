@@ -128,6 +128,21 @@ class CopilotMessage {
     );
   }
 
+  /// copyWith can't null a field (`pendingAction: null` keeps the old value),
+  /// so the confirmation card would never disappear after Approve/Decline.
+  CopilotMessage clearPendingAction() {
+    return CopilotMessage(
+      id: id,
+      role: role,
+      text: text,
+      reasoning: reasoning,
+      actionExecuted: actionExecuted,
+      timestamp: timestamp,
+      isError: isError,
+      rawApiMessage: rawApiMessage,
+    );
+  }
+
   Map<String, dynamic> toApiMessage() {
     // If we have a raw API message from the server, use that (preserves tool_calls etc.)
     if (rawApiMessage != null) return rawApiMessage!;

@@ -22,6 +22,7 @@ class _CopilotSettingsScreenState extends ConsumerState<CopilotSettingsScreen> {
   bool _isVerified = false;
 
   CopilotConfig? _currentConfig;
+  // Fallback only; the real list comes from the server's /copilot/config.
   List<ProviderInfo> _providers = const [
     ProviderInfo(
       id: 'deepseek',
@@ -35,52 +36,28 @@ class _CopilotSettingsScreenState extends ConsumerState<CopilotSettingsScreen> {
       name: 'Google Gemini',
       dialect: 'gemini',
       defaultModel: 'gemini-2.5-flash',
-      models: [
-        'gemini-2.5-flash',
-        'gemini-2.5-pro',
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-lite',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-      ],
+      models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
     ),
     ProviderInfo(
       id: 'openai',
       name: 'OpenAI',
       dialect: 'openai',
-      defaultModel: 'gpt-4o-mini',
-      models: [
-        'gpt-4o-mini',
-        'gpt-4o',
-        'gpt-4.1',
-        'gpt-4.1-mini',
-        'o3-mini',
-        'o1',
-      ],
+      defaultModel: 'gpt-4.1-mini',
+      models: ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini', 'gpt-4o', 'o4-mini'],
     ),
     ProviderInfo(
       id: 'groq',
-      name: 'Groq (Fast Llama & DeepSeek)',
+      name: 'Groq (Fast Llama)',
       dialect: 'openai',
       defaultModel: 'llama-3.3-70b-versatile',
-      models: [
-        'llama-3.3-70b-versatile',
-        'llama-3.1-8b-instant',
-        'deepseek-r1-distill-llama-70b',
-        'mixtral-8x7b-32768',
-      ],
+      models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'openai/gpt-oss-120b'],
     ),
     ProviderInfo(
       id: 'anthropic',
       name: 'Anthropic Claude',
       dialect: 'anthropic',
-      defaultModel: 'claude-3-7-sonnet-latest',
-      models: [
-        'claude-3-7-sonnet-latest',
-        'claude-3-5-sonnet-latest',
-        'claude-3-5-haiku-latest',
-        'claude-3-opus-latest',
-      ],
+      defaultModel: 'claude-sonnet-5-5',
+      models: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-sonnet-4-5'],
     ),
   ];
 
@@ -155,7 +132,7 @@ class _CopilotSettingsScreenState extends ConsumerState<CopilotSettingsScreen> {
       (p) => p.id == _selectedProvider,
       orElse: () => _providers.isNotEmpty
           ? _providers.first
-          : const ProviderInfo(id: 'gemini', name: 'Gemini', dialect: 'gemini', defaultModel: 'gemini-2.0-flash', models: ['gemini-2.0-flash']),
+          : const ProviderInfo(id: 'gemini', name: 'Gemini', dialect: 'gemini', defaultModel: 'gemini-2.5-flash', models: ['gemini-2.5-flash']),
     );
   }
 
@@ -508,12 +485,12 @@ class _CopilotSettingsScreenState extends ConsumerState<CopilotSettingsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Column(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Current Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        SizedBox(height: 2),
-                        Text('v${AppUpdateService.currentVersion}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace')),
+                        const Text('Current Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text('v${AppUpdateService.currentVersion}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace')),
                       ],
                     ),
                     Container(

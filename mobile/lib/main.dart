@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/security/app_lock_wrapper.dart';
+import 'core/services/app_update_service.dart';
 import 'core/theme/app_theme.dart';
 import 'shared/main_navigation_shell.dart';
 
@@ -15,6 +16,8 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  await AppUpdateService.loadCurrentVersion();
 
   runApp(
     const ProviderScope(

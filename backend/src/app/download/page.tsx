@@ -1,7 +1,11 @@
 import React from 'react';
 import { Download, ShieldCheck, Smartphone, CheckCircle, Sparkles } from 'lucide-react';
+import { getCurrentRelease } from '@/lib/release';
 
-export default function DownloadPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function DownloadPage() {
+  const release = await getCurrentRelease();
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-center items-center px-4 py-12 font-sans selection:bg-indigo-500 selection:text-white">
       <div className="max-w-md w-full bg-slate-800/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center">
@@ -13,7 +17,7 @@ export default function DownloadPage() {
         {/* Version Badge */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-300 text-xs font-semibold mb-3">
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          Version 1.1.0 Available
+          Version {release.version} Available
         </div>
 
         {/* Title */}
@@ -26,12 +30,12 @@ export default function DownloadPage() {
 
         {/* Big Download Button */}
         <a
-          href="/selisco.apk"
+          href={release.downloadUrl}
           download="selisco.apk"
           className="inline-flex items-center justify-center gap-3 w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-base rounded-2xl shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 mb-4"
         >
           <Download className="w-5 h-5" />
-          Download &amp; Install APK (v1.1.0)
+          Download &amp; Install APK (v{release.version})
         </a>
 
         <p className="text-xs text-slate-500 mb-6">

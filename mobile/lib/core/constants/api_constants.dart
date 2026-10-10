@@ -17,6 +17,7 @@ class ApiConstants {
 
   // Endpoints
   static const String invoices = '/api/invoices';
+  static const String quotations = '/api/quotations';
   static const String deliveryNotes = '/api/delivery-notes';
   static const String analytics = '/api/analytics';
   static const String copilotChat = '/api/copilot/chat';
@@ -30,4 +31,6 @@ class ApiConstants {
   static String invoiceDetail(String id) => '/api/invoices/$id';
   static String convertInvoice(String id) => '/api/invoices/$id/convert';
   static String deliveryNoteDetail(String id) => '/api/delivery-notes/$id';
+  static String quotationDetail(String id) => '/api/quotations/$id';
+  static String convertQuotation(String id) => '/api/quotations/$id/convert';
 }
